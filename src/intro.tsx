@@ -1,11 +1,13 @@
 import { useState } from "react";
 import SceneState, { Scene } from "./sceneState";
+import { getRandomInt } from "./util";
 import WorldState, { Map, Terrain, Tribe } from "./worldState";
 
 const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   const setPlayerTribe = WorldState((s) => s.setPlayerTribe);
   const setMap = WorldState((s) => s.setMap);
   const setOffsets = WorldState((s) => s.setMapViewPort);
+  const clearState = WorldState((s) => s.clearState);
   const currentState = SceneState((s) => s.state);
   const changeScene = SceneState((s) => s.changeState);
   const tribes = [
@@ -44,6 +46,7 @@ const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
       <StartGameButton
         onClick={() => {
           if (selectedTribe) {
+            clearState();
             setPlayerTribe(selectedTribe);
             changeScene(Scene.Worldmap);
             setMap(generateMap());
@@ -56,15 +59,9 @@ const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   );
 };
 
-const getRandomInt = (min: number, max: number) => {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
-};
-
 const generateMap: () => Map = () => {
-  const height = 2000;
-  const width = 2000;
+  const height = 5000;
+  const width = 5000;
 
   const rows = width / 200;
   const cols = height / 200;

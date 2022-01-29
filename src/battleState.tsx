@@ -1,9 +1,6 @@
 import create from "zustand";
 import { persist } from "zustand/middleware";
-
-export type Enemy = {
-  name: string;
-};
+import { Enemy } from "./worldState";
 
 type BattleState = {
   enemy: Enemy;
@@ -13,7 +10,12 @@ type BattleState = {
 const state = create<BattleState>(
   persist(
     (set, get) => ({
-      enemy: { name: "none" },
+      enemy: {
+        name: "none",
+        color: "transparent",
+        home: { x: 0, y: 0 },
+        defeatedAt: undefined,
+      },
       setEnemy: (e: Enemy) => set((_) => ({ enemy: e })),
     }),
     { name: "scene-store" }

@@ -1,6 +1,5 @@
 import React from "react";
 import logo from "./logo.svg";
-import "./App.css";
 import IntroScreen from "./intro";
 import SceneState, { Scene } from "./sceneState";
 import WorldState, { Tribe } from "./worldState";
