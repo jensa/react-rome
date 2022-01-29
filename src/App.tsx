@@ -1,26 +1,23 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React from "react";
+import logo from "./logo.svg";
+import "./App.css";
+import IntroScreen from "./intro";
+import SceneState, { Scene } from "./sceneState";
+import WorldState, { Tribe } from "./worldState";
+import WorldMapScreen from "./worldMap";
+import BattleScreen from "./battleScene";
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+  const currentState = SceneState((s) => s.state);
+  const playerTribe = WorldState((s) => s.playerTribe);
+
+  if (currentState === Scene.Intro) {
+    return <IntroScreen />;
+  } else if (currentState === Scene.Worldmap) {
+    return <WorldMapScreen />;
+  } else {
+    return <BattleScreen />;
+  }
 }
 
 export default App;
