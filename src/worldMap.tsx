@@ -98,6 +98,19 @@ const WorldMapScreen: React.FC<{}> = ({}) => {
             border: "1px solid black",
           }}
         >
+          {defeatedEnemies.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 20,
+                left: mapWidth - 100,
+                fontSize: "20px",
+                zIndex: 1,
+              }}
+            >
+              💥:{defeatedEnemies.length}
+            </div>
+          )}
           <VillageDrawing
             color="green"
             defeated={false}
