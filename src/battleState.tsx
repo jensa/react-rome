@@ -18,7 +18,7 @@ const state = create<BattleState>(
       },
       setEnemy: (e: Enemy) => set((_) => ({ enemy: e })),
     }),
-    { name: "scene-store" }
+    { name: "battle-store" }
   )
 );
 

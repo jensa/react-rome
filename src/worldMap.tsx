@@ -75,8 +75,6 @@ const WorldMapScreen: React.FC<{}> = ({}) => {
 
   console.log(`home: ${JSON.stringify(home)}`);
 
-  //the current enemy choice is affected by the last enemy
-
   const [enemies] = useState(
     getEnemies(
       defeatedEnemies,
