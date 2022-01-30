@@ -6,7 +6,7 @@ import Button from "./button";
 import { ReactComponent as DeckGraphic } from "./svg/deck.svg";
 import { ReactComponent as EnemyCardGraphic } from "./svg/cards/empty.svg";
 import { ReactComponent as EmptyCardGraphic } from "./svg/cards/cardPosition.svg";
-import TurnBall from "./components/turnBall";
+import EndTurnButton from "./components/turnBall";
 import { keyString } from "./util";
 
 const neededEnemyState = {
@@ -33,8 +33,8 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 6fr 2fr",
-        padding: "30px",
+        gridTemplateColumns: "10vw 70vw 20vw",
+        padding: "5vh 5vw 5vh 5vw",
         width: "100%",
       }}
     >
@@ -42,7 +42,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         style={{
           height: "90vh",
           display: "grid",
-          gridTemplateRows: "1fr 1fr 1fr 1fr 1fr 1fr",
+          gridTemplateRows: "10vh 20vh 15vh 15vh 20vh 10vh",
         }}
       >
         <Deck fill={enemy.color} cardsLeft={enemyCards.length} />
@@ -54,12 +54,20 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         </div>
         <Deck fill="lightgreen" cardsLeft={playerCards.length} />
       </div>
-      <div style={{ display: "grid", gridTemplateRows: "1fr 4fr 1fr" }}>
+      <div
+        style={{
+          justifyContent: "center",
+          display: "grid",
+          gridTemplateRows: "10vh 5vh 60vh 5vh 10vh",
+        }}
+      >
         <EnemyCardDisplay
           cards={[1, undefined, 1, 1, undefined]}
           color={enemy.color}
         />
+        <div />
         <Board />
+        <div />
         <EnemyCardDisplay
           cards={[1, undefined, 1, 1, undefined]}
           color={"lightgreen"}
@@ -78,7 +86,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         <div />
         <BattleLog />
         <div />
-        <TurnBall
+        <EndTurnButton
           onClick={() => {
             setInputLocked(!inputLocked);
           }}
@@ -101,7 +109,28 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
 
 const Board: React.FC<{}> = ({}) => {
   const boardMatrix: number[][] = [];
-  return <div style={{ height: "100%" }}>Board</div>;
+  /*
+  how this will work:
+  every grid square has an element?
+  work it out:
+    all objects _on_ the grid (terrain, buildings, neutral units,
+      enemy units, friendly units) have grid coordinates.
+    for each grid coordinate, check the map of game objects and if found,
+    call the game objects getElement() and put it into the square
+
+  */
+
+  return (
+    <div
+      style={{
+        height: "60.2vh",
+        width: "70.2vh",
+        backgroundSize: "10vh 10vh",
+        backgroundImage: `repeating-linear-gradient(#ccc 0 1px, transparent 1px 100%),
+  repeating-linear-gradient(90deg, #ccc 0 1px, transparent 1px 100%)`,
+      }}
+    ></div>
+  );
 };
 
 const EnemyCardDisplay: React.FC<{
@@ -122,7 +151,7 @@ const EnemyCardDisplay: React.FC<{
       {cards.map((c) => {
         if (c) {
           return (
-            <div style={{ height: "80px" }}>
+            <div style={{ height: "100%" }}>
               <EnemyCardGraphic
                 style={{
                   width: "100%",
@@ -136,7 +165,7 @@ const EnemyCardDisplay: React.FC<{
           );
         } else {
           return (
-            <div style={{ height: "80px" }}>
+            <div style={{ height: "100%" }}>
               <EmptyCardGraphic
                 style={{
                   width: "100%",
@@ -209,8 +238,8 @@ const Deck: React.FC<{
       style={{
         position: "relative",
         cursor: "pointer",
-        height: "80px",
-        width: "80px",
+        height: "100%",
+        width: "100%",
       }}
       onClick={() => setShowCardsLeft(!showCardsLeft)}
     >
