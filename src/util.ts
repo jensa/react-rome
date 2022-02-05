@@ -4,6 +4,26 @@ const getRandomInt = (min: number, max: number) => {
   return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
 };
 
+function shuffleArray(array: any[]) {
+  let currentIndex = array.length,
+    randomIndex;
+
+  // While there remain elements to shuffle...
+  while (currentIndex != 0) {
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+
+    // And swap it with the current element.
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex],
+      array[currentIndex],
+    ];
+  }
+
+  return array;
+}
+
 function keyString() {
   // Public Domain/MIT
   var d = new Date().getTime(); //Timestamp
@@ -67,4 +87,4 @@ const enemyName = () => {
   return name;
 };
 
-export { enemyName, getRandomInt, keyString };
+export { enemyName, getRandomInt, keyString, shuffleArray };
