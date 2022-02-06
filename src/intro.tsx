@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { UnitTypes } from "./battleState";
 import SceneState, { Scene } from "./sceneState";
-import { getRandomInt } from "./util";
+import { getRandomInt, keyString } from "./util";
+import { getCard } from "./utils/cardUtils";
 import WorldState, { Map, Terrain, Tribe } from "./worldState";
 
 const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
@@ -8,17 +10,43 @@ const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   const setMap = WorldState((s) => s.setMap);
   const setOffsets = WorldState((s) => s.setMapViewPort);
   const clearState = WorldState((s) => s.clearState);
-  const currentState = SceneState((s) => s.state);
   const changeScene = SceneState((s) => s.changeState);
   const tribes = [
-    { name: "The opulent" },
-    { name: "The jolly" },
-    { name: "The pained" },
+    {
+      name: "The opulent",
+      deck: [
+        getCard(UnitTypes.Defender),
+        getCard(UnitTypes.Footman),
+        getCard(UnitTypes.Footman),
+        getCard(UnitTypes.Footman),
+        getCard(UnitTypes.Knight),
+      ],
+    },
+    {
+      name: "The clever",
+      deck: [
+        getCard(UnitTypes.ArcherLeft),
+        getCard(UnitTypes.ArcherRight),
+        getCard(UnitTypes.Mage),
+        getCard(UnitTypes.Catapult),
+        getCard(UnitTypes.Thief),
+      ],
+    },
+    {
+      name: "The hardy",
+      deck: [
+        getCard(UnitTypes.Berserk),
+        getCard(UnitTypes.Berserk),
+        getCard(UnitTypes.Defender),
+        getCard(UnitTypes.Knight),
+        getCard(UnitTypes.Healer),
+      ],
+    },
   ];
   const [selectedTribe, setSelectedTribe] = useState<Tribe | undefined>();
   return (
     <div style={{ display: "flex", flexDirection: "column", ...style }}>
-      <h1 style={{ fontSize: "100px" }}>ROMELIKE</h1>
+      <h1 style={{ fontSize: "100px", textAlign: "center" }}>ROMELIKE</h1>
       <div
         style={{
           display: "flex",
@@ -113,7 +141,7 @@ const StartGameButton: React.FC<{ enabled: boolean; onClick: () => void }> = ({
 };
 
 const TribeInfoBox: React.FC<{ tribe: Tribe }> = ({ tribe }) => {
-  const text = `${tribe.name} is a really cool tribe. pick'em`;
+  const text = `${tribe.name} is a really cool tribe. pick'em.`;
   return (
     <div
       style={{
@@ -124,7 +152,24 @@ const TribeInfoBox: React.FC<{ tribe: Tribe }> = ({ tribe }) => {
         padding: "10px",
       }}
     >
-      {text}
+      <span>{text}</span>
+      <div style={{ display: "flex", flexDirection: "row", marginTop: "10px" }}>
+        {tribe.deck.map((card) => {
+          return (
+            <div
+              key={keyString()}
+              style={{ display: "flex", marginRight: "10px" }}
+            >
+              <span>{UnitTypes[card.unit.type]} </span>
+              <img
+                alt={UnitTypes[card.unit.type]}
+                src={card.unit.image}
+                style={{ height: "20px", width: "15px", marginLeft: "5px" }}
+              ></img>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

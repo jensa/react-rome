@@ -1,37 +1,281 @@
 import { useState } from "react";
 import SceneState, { Scene } from "./sceneState";
-import WorldState, { Coord, Map, Terrain, Tribe } from "./worldState";
-import BattleState from "./battleState";
+import WorldState from "./worldState";
+import BattleState, {
+  BattleMap,
+  Card,
+  PatternPart,
+  Unit,
+  UnitTypes,
+} from "./battleState";
 import Button from "./button";
 import { ReactComponent as DeckGraphic } from "./svg/deck.svg";
 import { ReactComponent as EnemyCardGraphic } from "./svg/cards/empty.svg";
 import { ReactComponent as EmptyCardGraphic } from "./svg/cards/cardPosition.svg";
-import waterTerrain from "./png/terrainTiles/water.png";
-import mountainTerrain from "./png/terrainTiles/mountain.png";
-import forestTerrain from "./png/terrainTiles/forest.png";
-
 import EndTurnButton from "./components/turnBall";
 import { getRandomInt, keyString, shuffleArray } from "./util";
+import { useEffect } from "react";
+import { getJSDocTemplateTag } from "typescript";
+import React from "react";
 
-const neededEnemyState = {
-  energyMax: 3,
-  energy: 3,
+type BattleLogEntry = {
+  unitId?: number;
+  affectedUnitId?: number;
+  move?: PatternPart[];
+  attack?: PatternPart[];
+  message?: string;
 };
-const neededPlayerState = {
-  energyMax: 3,
-  energy: 3,
+
+type BattleSceneState = {
+  enemyEnergyMax: number;
+  enemyEnergy: number;
+  playerEnergyMax: number;
+  playerEnergy: number;
+  playerCards: Card[];
+  playerDrawn: Card[];
+  playerDiscard: Card[];
+  enemyCards: Card[];
+  enemyDrawn: Card[];
+  enemyDiscard: Card[];
+  battleLog: BattleLogEntry[];
+  tooltip?: TooltipEntity;
+  playerUnits: Unit[];
+  enemyUnits: Unit[];
+  idCounter: number;
 };
+
+const initialState: BattleSceneState = {
+  enemyEnergyMax: 3,
+  enemyEnergy: 3,
+  playerEnergyMax: 3,
+  playerEnergy: 3,
+  playerCards: [],
+  playerDrawn: [],
+  playerDiscard: [],
+  enemyCards: [],
+  enemyDrawn: [],
+  enemyDiscard: [],
+  battleLog: [
+    {
+      message: "Battle started",
+    },
+  ],
+  playerUnits: [],
+  enemyUnits: [],
+  idCounter: 0,
+};
+
+type TooltipEntity = {
+  description: string;
+  image?: string;
+};
+
+const gridSize = { width: 7, height: 6 };
+
+const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   const enemy = BattleState((s) => s.enemy);
+  const battleMap = BattleState((s) => s.battleMap);
   const changeScene = SceneState((s) => s.changeState);
   const defeatEnemy = WorldState((s) => s.addDefeatedEnemy);
-  const [enemyCards, setEnemyCards] = useState([]);
-  const [playerCards, setPlayerCards] = useState([]);
-  const [enemyEnergy, setEnemyEnergy] = useState(neededEnemyState.energy);
-  const [playerEnergy, setPlayerEnergy] = useState(neededPlayerState.energy);
+  const playerTribe = WorldState((s) => s.playerTribe);
 
-  const [inputLocked, setInputLocked] = useState(false);
+  const [state, setState] = useState<BattleSceneState>({
+    ...initialState,
+    enemyCards: [...shuffleArray(enemy.deck)],
+    playerCards: [...shuffleArray(playerTribe.deck)],
+  });
+
+  const [runEnemyTurn, setRunEnemyTurn] = useState(false);
+
+  const drawEnemyCards = () => {
+    let newDiscard = [
+      ...state.enemyDiscard,
+      ...state.enemyDrawn.splice(0, state.enemyDrawn.length),
+    ];
+    let newRemaining = state.enemyCards;
+    let newDrawn: Card[] = [];
+    if (state.enemyCards.length < 5) {
+      const cardsMissing = 5 - state.enemyCards.length;
+      const drawn = newRemaining.splice(0, state.enemyCards.length);
+      newRemaining = shuffleArray(newDiscard);
+      newDrawn = [...drawn, ...newRemaining.splice(0, cardsMissing)];
+    } else {
+      newDrawn = newRemaining.splice(0, 5);
+    }
+
+    setState((prev) => {
+      return {
+        ...prev,
+        enemyDrawn: newDrawn,
+        enemyDiscard: newDiscard,
+        enemyCards: newRemaining,
+      };
+    });
+    return newDrawn;
+  };
+
+  const drawPlayerCards = () => {
+    let newDiscard = [
+      ...state.playerDiscard,
+      ...state.playerDrawn.splice(0, state.playerDrawn.length),
+    ];
+    let newRemaining = state.playerCards;
+    let newDrawn: Card[] = [];
+    if (state.playerCards.length < 5) {
+      const cardsMissing = 5 - state.playerCards.length;
+      const drawn = newRemaining.splice(0, state.playerCards.length);
+      newRemaining = shuffleArray(newDiscard);
+      newDrawn = [...drawn, ...newRemaining.splice(0, cardsMissing)];
+      //draw remaining cards
+      //shuffle discard into cards
+      //draw rest
+    } else {
+      newDrawn = newRemaining.splice(0, 5);
+    }
+
+    setState((prev) => {
+      return {
+        ...prev,
+        playerDrawn: newDrawn,
+        playerDiscard: newDiscard,
+        playerCards: newRemaining,
+      };
+    });
+  };
+
+  const placeEnemyUnits = async (drawn: Card[]) => {
+    let energyLeft = state.enemyEnergyMax;
+    let idCounter = state.idCounter;
+    let newDrawn = [...drawn];
+
+    let newOccupied: number[] = [];
+    let newEnemyUnits = [...state.enemyUnits];
+    while (energyLeft > 0) {
+      const drawIndex = getRandomInt(0, newDrawn.length);
+      const chosenCard = newDrawn.splice(drawIndex, 1)[0];
+      if (!chosenCard) {
+        energyLeft = 0;
+        continue;
+      }
+      if (chosenCard.energyRequired > energyLeft) {
+        continue;
+      }
+
+      //find an unoccupied square
+      // if none can be found, set energy to 0 (give up)
+      // check enemy and player units, see if any of them are on enemys start squares {x:0-6, y:0}
+      const occupiedXPositions = [
+        ...state.enemyUnits.filter((u) => u.pos.y === 0).map((u) => u.pos.x),
+        ...state.playerUnits.filter((u) => u.pos.y === 0).map((u) => u.pos.x),
+        ...newOccupied,
+      ];
+      const unoccupiedXPositions = Array.from(Array(7).keys()).filter(
+        (x) => occupiedXPositions.find((o) => o === x) === undefined
+      );
+      if (unoccupiedXPositions.length < 1) {
+        energyLeft = 0;
+      } else {
+        const xPosition =
+          unoccupiedXPositions[getRandomInt(0, unoccupiedXPositions.length)];
+        const newUnit: Unit = {
+          ...chosenCard.unit,
+          id: idCounter++,
+          currentHealth: chosenCard.unit.maxHealth,
+          pos: { x: xPosition, y: 0 },
+        };
+        setState((prev) => {
+          return { ...prev, enemyUnits: [...prev.enemyUnits, newUnit] };
+        });
+        newOccupied.push(xPosition);
+        newEnemyUnits.push(newUnit);
+        energyLeft -= chosenCard.energyRequired;
+      }
+      await wait(1000);
+    }
+    setState((prev) => {
+      return {
+        ...prev,
+        enemyDiscard: [...prev.enemyDiscard, ...drawn],
+        enemyUnits: [...newEnemyUnits],
+        idCounter: idCounter,
+      };
+    });
+    return newEnemyUnits;
+  };
+
+  const moveEnemyUnits = async (units: Unit[]) => {
+    units.sort((a, b) => a.id - b.id);
+    for (let i = 0; i < units.length; i++) {
+      let unit = units[i];
+      for (let j = 0; j < unit.movePattern.length; j++) {
+        console.log(unit.id);
+        const move = unit.movePattern[j];
+        unit = {
+          ...unit,
+          pos: { x: unit.pos.x + move.x, y: unit.pos.y + move.y },
+        };
+        setState((prev) => {
+          return {
+            ...prev,
+            enemyUnits: [
+              ...prev.enemyUnits.filter((p) => p.id !== unit.id),
+              unit,
+            ],
+          };
+        });
+        await wait(1000);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const doTurn = async () => {
+      const newDrawn = drawEnemyCards();
+      const newUnits = await placeEnemyUnits(newDrawn);
+      await moveEnemyUnits(newUnits);
+      drawPlayerCards();
+      setRunEnemyTurn(false);
+    };
+    if (runEnemyTurn) {
+      doTurn();
+    }
+    //fix this eventually, not sur ehwo game loop should actually work...
+    // eslint-disable-next-line
+  }, [runEnemyTurn]);
+
+  useEffect(() => {
+    setRunEnemyTurn(true);
+  }, [setRunEnemyTurn]);
+  /*
+  battle prep: shuffle the enemys cards
+  shuffle player cards
+
+  state needed: 
+  player/enemy cards
+  player/enemy drawn cards
+  player/enemy discarded cards
+
+  player/enemy units
+
+  overlays - how to handle? create overlays when selected?
+  tooltip info - currently selected entity
+  battle log - list of strings? or list of actions, like "{unitname, movePattern}" yes
+  click order - unit, building, terrain
+
+  turn order state:
+    enemy card draw
+    enemy unit placement
+    END ENEMY TURN
+    enemy moves in "placed" order - check end state conditions after each "interaction" (?)
+
+    player card draw
+    player unit placement
+    END PLAYER TURN
+    player moves in "placed order" - check end state conditions after each
+
+  */
 
   return (
     <div
@@ -49,14 +293,14 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           gridTemplateRows: "10vh 20vh 15vh 15vh 20vh 10vh",
         }}
       >
-        <Deck fill={enemy.color} cardsLeft={enemyCards.length} />
+        <Deck fill={enemy.color} cardsLeft={state.enemyCards.length} />
         <div />
-        <div>{"Energy: " + enemyEnergy + "/" + neededEnemyState.energyMax}</div>
+        <div>{"Energy: " + state.enemyEnergy + "/" + state.enemyEnergyMax}</div>
         <div />
         <div>
-          {"Energy: " + playerEnergy + "/" + neededPlayerState.energyMax}
+          {"Energy: " + state.playerEnergy + "/" + state.playerEnergyMax}
         </div>
-        <Deck fill="lightgreen" cardsLeft={playerCards.length} />
+        <Deck fill="lightgreen" cardsLeft={state.playerCards.length} />
       </div>
       <div
         style={{
@@ -66,16 +310,43 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         }}
       >
         <EnemyCardDisplay
-          cards={[1, undefined, 1, 1, undefined]}
+          cards={state.enemyDrawn.map((e) => (e ? 1 : undefined))}
           color={enemy.color}
         />
         <div />
-        {true && <Board />}
+        {true && (
+          <Board
+            battleMap={battleMap}
+            enemyUnits={state.enemyUnits}
+            playerUnits={state.playerUnits}
+            select={(unit) =>
+              setState((prev) => {
+                return {
+                  ...prev,
+                  tooltip: {
+                    description: "- " + UnitTypes[unit.type] + " -",
+                    image: unit.image,
+                  },
+                };
+              })
+            }
+          />
+        )}
         <div />
-        <div />
-        <EnemyCardDisplay
-          cards={[1, undefined, 1, 1, undefined]}
+        <PlayerCardDisplay
+          cards={state.playerDrawn}
           color={"lightgreen"}
+          select={(card) =>
+            setState((prev) => {
+              return {
+                ...prev,
+                tooltip: {
+                  description: "- " + UnitTypes[card.unit.type] + " -",
+                  image: card.unit.image,
+                },
+              };
+            })
+          }
         />
       </div>
       <div
@@ -87,16 +358,16 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           gridTemplateRows: "20vh 5vh 35vh 5vh 10vh 5vh 1vh",
         }}
       >
-        <TooltipWindow />
+        <TooltipWindow activeTooltip={state.tooltip} />
         <div />
-        <BattleLog />
+        <BattleLog log={state.battleLog} />
         <div />
         <EndTurnButton
           onClick={() => {
-            setInputLocked(!inputLocked);
+            setRunEnemyTurn(true);
           }}
           style={{ height: "50px", width: "30px" }}
-          active={inputLocked}
+          active={runEnemyTurn}
         />
         <div />
         <Button
@@ -112,66 +383,12 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   );
 };
 
-const battleTerrainTiles = [waterTerrain, mountainTerrain, forestTerrain];
-
-const Board: React.FC<{}> = ({}) => {
-  const boardMatrix: number[][] = Array.from(Array(7).keys()).map((r) => []);
-  /*
-  how this will work:
-  every grid square has an element?
-  work it out:
-    all objects _on_ the grid (terrain, buildings, neutral units,
-      enemy units, friendly units) have grid coordinates.
-    for each grid coordinate, check the map of game objects and if found,
-    call the game objects getElement() and put it into the square
-
-    grid is 7x6 so there is 42 squares
-    we want between... 8 - 15 terrain tiles. pick em at random and place them in an array
-    these will be rendered first
-
-    after that, render any buildings we want. Maybe leave this feature for now
-
-    then any neutral units(?)
-
-    then actual units
-
-    then overlays (these need transparency and their onClick() needs to propagate, I think)
-  */
-
-  const terrainTilesCount = getRandomInt(8, 16);
-  const terrainTiles = Array.from(Array(terrainTilesCount).keys()).map(
-    (r) => battleTerrainTiles[getRandomInt(0, 3)]
-  );
-  const squares: Coord[] = [];
-  // how to choose coordinates: just do it randomly? cant have any doubles
-  for (let xi = 0; xi < 7; xi += 2) {
-    for (let yi = 0; yi < 6; yi += 2) {
-      squares.push(
-        ...[
-          { x: xi, y: yi },
-          { x: xi, y: yi + 1 },
-        ]
-      );
-      if (xi < 6) {
-        squares.push(
-          ...[
-            { x: xi + 1, y: yi },
-            { x: xi + 1, y: yi + 1 },
-          ]
-        );
-      }
-    }
-  }
-
-  console.log(squares);
-
-  shuffleArray(squares);
-  const terrainTilesToDraw = terrainTiles.map((t, i) => {
-    return { e: t, c: squares[i] };
-  });
-
-  console.log(terrainTilesToDraw);
-
+const Board: React.FC<{
+  battleMap: BattleMap;
+  enemyUnits: Unit[];
+  playerUnits: Unit[];
+  select: (u: Unit) => void;
+}> = ({ battleMap, enemyUnits, playerUnits, select }) => {
   return (
     <div
       style={{
@@ -184,12 +401,12 @@ const Board: React.FC<{}> = ({}) => {
         position: "relative",
       }}
     >
-      {terrainTilesToDraw.map((t) => {
-        const top = 10 * t.c.y;
-        const left = 10 * t.c.x;
+      {battleMap.terrainTiles.map((t) => {
+        const top = 10 * t.coord.y;
+        const left = 10 * t.coord.x;
         return (
           <div
-            key={"" + top + left}
+            key={"terrain_at_" + top + left}
             style={{
               position: "absolute",
               top: `${top}vh`,
@@ -198,10 +415,87 @@ const Board: React.FC<{}> = ({}) => {
               height: "10vh",
             }}
           >
-            <img src={t.e} style={{ width: "100%", height: "100%" }}></img>
+            <img
+              alt={"" + t.coord.x + t.coord.y}
+              src={t.img}
+              style={{ width: "100%", height: "100%" }}
+            ></img>
           </div>
         );
       })}
+      {enemyUnits.map((unit) => {
+        return (
+          <EnemyUnit
+            key={"location_of_" + unit.id}
+            unit={unit}
+            select={() => select(unit)}
+          />
+        );
+      })}
+      {playerUnits.map((unit) => {
+        return (
+          <PlayerUnit
+            key={"location_of_" + unit.id}
+            unit={unit}
+            select={() => select(unit)}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+const EnemyUnit: React.FC<{ unit: Unit; select: () => void }> = ({
+  unit,
+  select,
+}) => {
+  const top = 10 * unit.pos.y;
+  const left = 10 * unit.pos.x;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: `${top}vh`,
+        left: `${left}vw`,
+        width: "10vw",
+        height: "10vh",
+        cursor: "pointer",
+      }}
+      onClick={select}
+    >
+      <img
+        alt={"" + unit.pos.x + unit.pos.y}
+        src={unit.image}
+        style={{ width: "100%", height: "100%" }}
+      ></img>
+    </div>
+  );
+};
+
+const PlayerUnit: React.FC<{ unit: Unit; select: () => void }> = ({
+  unit,
+  select,
+}) => {
+  const top = 10 * unit.pos.y;
+  const left = 10 * unit.pos.x;
+  return (
+    <div
+      key={"location_of_" + unit.id}
+      style={{
+        position: "absolute",
+        top: `${top}vh`,
+        left: `${left}vw`,
+        width: "10vw",
+        height: "10vh",
+        cursor: "pointer",
+      }}
+      onClick={select}
+    >
+      <img
+        alt={"" + unit.pos.x + unit.pos.y}
+        src={unit.image}
+        style={{ width: "100%", height: "100%" }}
+      ></img>
     </div>
   );
 };
@@ -252,13 +546,63 @@ const EnemyCardDisplay: React.FC<{
   );
 };
 
-const BattleLog: React.FC<{
+const PlayerCardDisplay: React.FC<{
+  color: string;
+  cards: Card[];
   style?: React.CSSProperties;
-}> = ({ style }) => {
-  const logItems = [
-    { key: keyString(), log: "This is a log" },
-    { key: keyString(), log: "Log number 2" },
-  ];
+  select: (c: Card) => void;
+}> = ({ color, cards, style, select }) => {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "space-around",
+        width: "100%",
+        ...style,
+      }}
+    >
+      {cards.map((c) => {
+        if (c) {
+          return (
+            <div
+              style={{ height: "100%" }}
+              key={keyString()}
+              onClick={() => select(c)}
+            >
+              <img
+                alt={UnitTypes[c.unit.type]}
+                src={c.image}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  cursor: "pointer",
+                  border: "2px solid " + color,
+                }}
+              />
+            </div>
+          );
+        } else {
+          return (
+            <div style={{ height: "100%" }} key={keyString()}>
+              <EmptyCardGraphic
+                style={{
+                  width: "100%",
+                  height: "100%",
+                }}
+              />
+            </div>
+          );
+        }
+      })}
+    </div>
+  );
+};
+
+const BattleLog: React.FC<{
+  log: BattleLogEntry[];
+  style?: React.CSSProperties;
+}> = ({ log, style }) => {
   return (
     <div
       style={{
@@ -271,9 +615,9 @@ const BattleLog: React.FC<{
         ...style,
       }}
     >
-      {logItems.map((l) => (
-        <p style={{ borderBottom: "1px solid black" }} key={l.key}>
-          {l.log}
+      {log.map((l) => (
+        <p style={{ borderBottom: "1px solid black" }} key={keyString()}>
+          {l.message}
         </p>
       ))}
     </div>
@@ -282,7 +626,8 @@ const BattleLog: React.FC<{
 
 const TooltipWindow: React.FC<{
   style?: React.CSSProperties;
-}> = ({ style }) => {
+  activeTooltip?: TooltipEntity;
+}> = ({ style, activeTooltip }) => {
   return (
     <div
       style={{
@@ -291,9 +636,20 @@ const TooltipWindow: React.FC<{
         border: "1px dashed black",
         padding: "5px",
         ...style,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        marginTop: "20px",
       }}
     >
-      Tooltip window
+      {activeTooltip?.description && <span>{activeTooltip.description}</span>}
+      {activeTooltip?.image && (
+        <img
+          style={{ height: "50px", width: "50px", marginTop: "30px" }}
+          alt={activeTooltip.description}
+          src={activeTooltip.image}
+        />
+      )}
     </div>
   );
 };

@@ -1,8 +1,10 @@
 import create from "zustand";
 import { persist } from "zustand/middleware";
+import { Card } from "./battleState";
 
 export type Tribe = {
   name: string;
+  deck: Card[];
 };
 
 export enum Terrain {
@@ -35,6 +37,7 @@ export type Enemy = {
   name: string;
   color: string;
   home: Coord;
+  deck: Card[];
   defeatedAt?: Date;
 };
 
@@ -56,7 +59,7 @@ type WorldState = {
 
 const emptyState = () => {
   return {
-    playerTribe: { name: "none" },
+    playerTribe: { name: "none", deck: [] },
     map: { h: 0, w: 0, terrain: [] },
     mapViewPort: { x: 500, y: 500 },
     defeatedEnemies: [],

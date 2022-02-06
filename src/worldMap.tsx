@@ -1,13 +1,20 @@
-import mapSvg from "./svg/map.svg";
 import mountain from "./svg/mountain.svg";
 import lake from "./svg/lake.svg";
 import forest from "./svg/forest.svg";
 import { useState } from "react";
 import Button from "./button";
 import SceneState, { Scene } from "./sceneState";
-import WorldState, { Map, TerrainSquare, Coord, Enemy } from "./worldState";
+import WorldState, {
+  Map,
+  TerrainSquare,
+  Coord,
+  Enemy,
+  Terrain,
+} from "./worldState";
 import BattleState from "./battleState";
 import { enemyName } from "./util";
+import generateBattlemap from "./utils/battleMapUtil";
+import { generateDeck } from "./utils/cardUtils";
 
 const mapWidth =
   Math.max(document.documentElement.clientWidth, window.innerWidth || 0) * 0.8;
@@ -19,21 +26,18 @@ const coordKey = (i: Coord) => {
   return `${i.x}:${i.y}`;
 };
 
-const createEnemy = (home: Coord) => {
-  // fin the midpoint, calculate new home from there.
+const createEnemy = (defeatedEnemiesCount: number, home: Coord) => {
+  //create a deck of cards here using some util
   return {
     home: home,
     name: enemyName(),
     color: "hsla(" + Math.floor(Math.random() * 360) + ", 100%, 70%, 1)",
     defeatedAt: undefined,
+    deck: generateDeck(2 + Math.floor(defeatedEnemiesCount / 2)),
   };
 };
 
 const getEnemies = (defeatedEnemies: Enemy[], offset: Coord) => {
-  console.log("getting enemies");
-  console.log(offset);
-  console.log(defeatedEnemies);
-
   const newCoords = [
     {
       x: offset.x + mapWidth * (1 / 10),
@@ -48,18 +52,19 @@ const getEnemies = (defeatedEnemies: Enemy[], offset: Coord) => {
       y: offset.y,
     },
   ];
-  console.log(newCoords);
-  const newEnemies = newCoords.map((n) => createEnemy(n));
+  const newEnemies = newCoords.map((n) =>
+    createEnemy(defeatedEnemies.length, n)
+  );
   return [...defeatedEnemies, ...newEnemies];
 };
-const WorldMapScreen: React.FC<{}> = ({}) => {
-  const currentState = SceneState((s) => s.state);
+const WorldMapScreen: React.FC<{}> = () => {
   const playerTribe = WorldState((s) => s.playerTribe);
   const offsets = WorldState((s) => s.mapViewPort);
   const changeScene = SceneState((s) => s.changeState);
   const setOffsets = WorldState((s) => s.setMapViewPort);
   const map = WorldState((s) => s.map);
   const setEnemyTribe = BattleState((s) => s.setEnemy);
+  const setBattleMap = BattleState((s) => s.setBattleMap);
 
   const defeatedEnemies = WorldState((s) => s.defeatedEnemies);
   const lastEnemy = defeatedEnemies.sort((a, b) => {
@@ -158,6 +163,7 @@ const WorldMapScreen: React.FC<{}> = ({}) => {
         selectedEnemy={selectedEnemy}
         startBattle={() => {
           setEnemyTribe(selectedEnemy!!);
+          setBattleMap(generateBattlemap());
           changeScene(Scene.Battle);
         }}
       />
@@ -260,6 +266,7 @@ const MapItem: React.FC<{ i: TerrainSquare }> = ({ i }) => {
       }}
     >
       <img
+        alt={Terrain[i.t]}
         style={{ width: "100%", height: "100%", zIndex: 0 }}
         src={terrainImages[i.t]}
       />

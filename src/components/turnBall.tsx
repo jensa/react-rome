@@ -1,4 +1,3 @@
-import { ReactComponent as TurnBallSvg } from "../svg/turn_ball.svg";
 import { ReactComponent as HourGlass } from "./hourglass.svg";
 import "./turnBall.css";
 
