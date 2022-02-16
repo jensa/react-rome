@@ -19,7 +19,7 @@ import unitImage_knight from "../svg/units/knight.svg";
 import unitImage_mage from "../svg/units/mage.svg";
 import unitImage_thief from "../svg/units/thief.svg";
 import unitImage_defender from "../svg/units/defender.svg";
-import { Card, UnitType, UnitTypes } from "../battleState";
+import { AttackType, Card, UnitType, UnitTypes } from "../battleState";
 import { getRandomInt, shuffleArray } from "../util";
 
 type UnitsMap = {
@@ -32,16 +32,17 @@ const units: UnitsMap = {
     image: unitImage_archerRight,
     movePattern: [{ y: 1, x: 0 }],
     attackPattern: [{ y: 2, x: 1 }],
+    attackType: AttackType.Attack,
     maxHealth: 2,
     damage: 1,
     tags: [],
   },
   [UnitTypes.ArcherLeft]: {
     type: UnitTypes.ArcherLeft,
-
     image: unitImage_archerLeft,
     movePattern: [{ y: 1, x: 0 }],
     attackPattern: [{ y: 2, x: -1 }],
+    attackType: AttackType.Attack,
     maxHealth: 2,
     damage: 1,
     tags: [],
@@ -58,6 +59,7 @@ const units: UnitsMap = {
       { y: 1, x: 0 },
       { y: 1, x: 1 },
     ],
+    attackType: AttackType.Attack,
     maxHealth: 2,
     damage: 1,
     tags: [],
@@ -71,6 +73,7 @@ const units: UnitsMap = {
       { y: 3, x: 0 },
       { y: 3, x: 1 },
     ],
+    attackType: AttackType.Attack,
     maxHealth: 1,
     damage: 2,
     tags: [],
@@ -80,6 +83,7 @@ const units: UnitsMap = {
     image: unitImage_footman,
     movePattern: [{ y: 1, x: 0 }],
     attackPattern: [{ y: 1, x: 0 }],
+    attackType: AttackType.Attack,
     maxHealth: 3,
     damage: 1,
     tags: [],
@@ -94,8 +98,9 @@ const units: UnitsMap = {
       { y: 1, x: 0 },
       { y: -1, x: 0 },
     ],
+    attackType: AttackType.Heal,
     maxHealth: 1,
-    damage: 0,
+    damage: -3,
     tags: ["heal"],
   },
   [UnitTypes.Mage]: {
@@ -110,6 +115,7 @@ const units: UnitsMap = {
       { y: 3, x: 0 },
       { y: 3, x: -1 },
     ],
+    attackType: AttackType.Attack,
     maxHealth: 1,
     damage: 1,
     tags: [],
@@ -126,8 +132,9 @@ const units: UnitsMap = {
       { y: 1, x: 0 },
       { y: 2, x: 0 },
     ],
+    attackType: AttackType.Attack,
     maxHealth: 2,
-    damage: 2,
+    damage: 1,
     tags: [],
   },
   [UnitTypes.Thief]: {
@@ -141,8 +148,9 @@ const units: UnitsMap = {
       { y: 1, x: 0 },
       { y: 2, x: 0 },
     ],
+    attackType: AttackType.Steal,
     maxHealth: 2,
-    damage: 0,
+    damage: 1,
     tags: ["passthrough", "thief"],
   },
   [UnitTypes.Defender]: {
@@ -150,9 +158,10 @@ const units: UnitsMap = {
     image: unitImage_defender,
     movePattern: [{ y: 1, x: 0 }],
     attackPattern: [],
+    attackType: AttackType.Push,
     maxHealth: 4,
     damage: 1,
-    tags: [],
+    tags: ["push"],
   },
 };
 

@@ -30,6 +30,13 @@ export type PatternPart = {
   y: number;
 };
 
+export enum AttackType {
+  Steal,
+  Heal,
+  Attack,
+  Push,
+}
+
 export type UnitType = {
   type: UnitTypes;
   image: string;
@@ -37,6 +44,7 @@ export type UnitType = {
   attackPattern: PatternPart[];
   maxHealth: number;
   damage: number;
+  attackType: AttackType;
   tags?: string[];
 };
 

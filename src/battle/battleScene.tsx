@@ -1,21 +1,9 @@
 import React, { useEffect, useState } from "react";
-import BattleState, {
-  BattleCard,
-  PatternPart,
-  Unit,
-  UnitTypes,
-} from "../battleState";
+import BattleState, { AttackType, BattleCard, PatternPart, Unit, UnitTypes } from "../battleState";
 import Button from "../button";
 import EndTurnButton from "../components/turnBall";
 import SceneState, { Scene } from "../sceneState";
-import {
-  getRandomInt,
-  hasTag,
-  keyString,
-  posAdd,
-  posEq,
-  shuffleArray,
-} from "../util";
+import { getRandomInt, hasTag, keyString, posAdd, posEq, shuffleArray } from "../util";
 import { BattleTerrainType } from "../utils/battleMapUtil";
 import { unitName } from "../utils/cardUtils";
 import useDidMountEffect from "../utils/useDidMountEffect";
@@ -90,9 +78,9 @@ const initialState: BattleSceneState = {
 };
 
 export type Attack = {
-  name: string;
   attacker: Unit;
   defender: Unit;
+  type: AttackType;
 };
 
 export enum OverlayType {
@@ -132,8 +120,8 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
 
   const [runEnemyTurn, setRunEnemyTurn] = useState(false);
 
+  //end state logic
   useDidMountEffect(() => {
-    console.log("its ending yo");
     if (state.endState === Endstate.Won) {
       defeatEnemy({ ...enemy, defeatedAt: new Date() });
       changeScene(Scene.Worldmap);
@@ -166,14 +154,13 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         ...state.playerUnits.filter((u) => u.pos.y === 0).map((u) => u.pos.x),
         ...newOccupied,
       ];
-      const unoccupiedXPositions = Array.from(
-        Array(gridSize.width).keys()
-      ).filter((x) => occupiedXPositions.find((o) => o === x) === undefined);
+      const unoccupiedXPositions = Array.from(Array(gridSize.width).keys()).filter(
+        (x) => occupiedXPositions.find((o) => o === x) === undefined
+      );
       if (unoccupiedXPositions.length < 1) {
         energyLeft = 0;
       } else {
-        const xPosition =
-          unoccupiedXPositions[getRandomInt(0, unoccupiedXPositions.length)];
+        const xPosition = unoccupiedXPositions[getRandomInt(0, unoccupiedXPositions.length)];
         const newUnit: Unit = {
           ...chosenCard.unit,
           id: idCounter++,
@@ -204,85 +191,6 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     return newEnemyUnits;
   };
 
-  const tryMoveTo = async (
-    unit: Unit,
-    toPosition: Coord,
-    move: PatternPart,
-    friendlyUnits: Unit[],
-    unfriendlyUnits: Unit[],
-    destructive: boolean
-  ) => {
-    const enemyUnitOnSpace = unfriendlyUnits.find((e) =>
-      posEq(toPosition, e.pos)
-    );
-    const friendlyUnitOnSpace = friendlyUnits.find((e) =>
-      posEq(toPosition, e.pos)
-    );
-
-    let unitLayerOk = false;
-    let terrainLayerOk = false;
-    const sideEffects: (() => Promise<void>)[] = [];
-    if (friendlyUnitOnSpace && destructive) {
-      sideEffects.push(() =>
-        doAttack({
-          name: "push",
-          attacker: unit,
-          defender: friendlyUnitOnSpace,
-        })
-      );
-    } else if (friendlyUnitOnSpace || enemyUnitOnSpace) {
-      const affectedUnit = friendlyUnitOnSpace ?? enemyUnitOnSpace!!;
-
-      if (hasTag(unit, "push") && !hasTag(affectedUnit, "sturdy")) {
-        sideEffects.push(async () => {
-          tryMoveTo(
-            affectedUnit,
-            { x: toPosition.x + move.x, y: toPosition.y + move.y },
-            move,
-            unfriendlyUnits,
-            friendlyUnits,
-            true
-          );
-          await wait(turntimer);
-        });
-        unitLayerOk = true;
-      }
-    } else {
-      unitLayerOk = true;
-    }
-    const terrainTile = battleMap.terrainTiles.find((t) =>
-      posEq(t.coord, toPosition)
-    );
-    if (
-      !terrainTile ||
-      terrainTile.terrain === BattleTerrainType.Mountain ||
-      terrainTile.terrain === BattleTerrainType.Water
-    ) {
-      terrainLayerOk = false;
-    }
-
-    if (unitLayerOk) {
-      sideEffects.forEach(async (s) => {
-        await s();
-      });
-      const movedUnit = (unit = {
-        ...unit,
-        pos: toPosition,
-      });
-      setState((prev) => {
-        return {
-          ...prev,
-          enemyUnits: [
-            ...prev.enemyUnits.filter((p) => p.id !== unit.id),
-            movedUnit,
-          ],
-        };
-      });
-      await wait(turntimer);
-    }
-    return terrainLayerOk;
-  };
-
   const doMove = async (move: Move) => {
     const movedUnit = {
       ...move.unit,
@@ -292,16 +200,10 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     setState((prev) => {
       const newState = move.unit.enemy
         ? {
-            enemyUnits: [
-              ...prev.enemyUnits.filter((p) => p.id !== movedUnit.id),
-              movedUnit,
-            ],
+            enemyUnits: [...prev.enemyUnits.filter((p) => p.id !== movedUnit.id), movedUnit],
           }
         : {
-            playerUnits: [
-              ...prev.playerUnits.filter((p) => p.id !== movedUnit.id),
-              movedUnit,
-            ],
+            playerUnits: [...prev.playerUnits.filter((p) => p.id !== movedUnit.id), movedUnit],
           };
       return {
         ...prev,
@@ -311,40 +213,62 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     await wait(turntimer);
   };
 
-  const doAttack = async (attack: Attack) => {
-    // check defense and offense? no
+  const [accumulatedEnergy, setAccumulatedEnergy] = useState(0);
 
-    const damage = attack.attacker.damage;
+  const doAttack = async (attack: Attack) => {
+    const typeOfAttack = attack.attacker.attackType;
+    let damage = attack.attacker.damage;
+
+    if (typeOfAttack === AttackType.Heal) {
+      //reduce damage to max diff between current and max
+      damage = -Math.min(
+        Math.abs(damage),
+        attack.defender.maxHealth - attack.defender.currentHealth
+      );
+    }
+
     const kill = damage >= attack.defender.currentHealth;
-    const enemyAffected = attack.defender.enemy;
+    const attackerFactionIsEnemy = attack.attacker.enemy;
+    const defenderFactionIsEnemy = attack.defender.enemy;
     const attackerName =
-      (enemyAffected ? "Your" : "Enemy") + " " + unitName(attack.attacker.type);
+      (attackerFactionIsEnemy ? "Enemy" : "Your") + " " + unitName(attack.attacker.type);
     const defenderName =
-      (enemyAffected ? "Enemy" : "Your") + " " + unitName(attack.defender.type);
+      (defenderFactionIsEnemy ? "Enemy" : "Your") + " " + unitName(attack.defender.type);
     const overlay = {
       type: OverlayType.Attack,
       value: { kill: kill, damage: damage },
       pos: attack.defender.pos,
     };
-    if (!kill) {
+    if (typeOfAttack === AttackType.Steal) {
+      const stealOverlay = {
+        type: OverlayType.Attack,
+        value: { kill: kill, damage: damage },
+        pos: attack.defender.pos,
+      };
+      setAccumulatedEnergy((p) => p + 1);
+      setState((prev) => {
+        return {
+          ...prev,
+          overlays: [...prev.overlays, stealOverlay],
+          battleLog: [
+            ...prev.battleLog,
+            {
+              message: `${attackerName} steals ${damage} energy from ${
+                defenderFactionIsEnemy ? "Enemy" : "You"
+              }`,
+            },
+          ],
+        };
+      });
+    } else if (!kill) {
       const newUnit = {
         ...attack.defender,
         currentHealth: attack.defender.currentHealth - damage,
       };
       setState((prev) => {
-        const newState = enemyAffected
-          ? {
-              enemyUnits: [
-                ...prev.enemyUnits.filter((e) => e.id !== newUnit.id),
-                newUnit,
-              ],
-            }
-          : {
-              playerUnits: [
-                ...prev.playerUnits.filter((e) => e.id !== newUnit.id),
-                newUnit,
-              ],
-            };
+        const newState = defenderFactionIsEnemy
+          ? { enemyUnits: [...prev.enemyUnits.filter((e) => e.id !== newUnit.id), newUnit] }
+          : { playerUnits: [...prev.playerUnits.filter((e) => e.id !== newUnit.id), newUnit] };
         return {
           ...prev,
           ...newState,
@@ -352,24 +276,16 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           battleLog: [
             ...prev.battleLog,
             {
-              message: `${attackerName} ${attack.name} ${defenderName} for ${damage}`,
+              message: `${attackerName} ${AttackType[typeOfAttack]}s ${defenderName} for ${damage} hp`,
             },
           ],
         };
       });
     } else {
       setState((prev) => {
-        const newState = enemyAffected
-          ? {
-              enemyUnits: [
-                ...prev.enemyUnits.filter((e) => e.id !== attack.defender.id),
-              ],
-            }
-          : {
-              playerUnits: [
-                ...prev.playerUnits.filter((e) => e.id !== attack.defender.id),
-              ],
-            };
+        const newState = defenderFactionIsEnemy
+          ? { enemyUnits: [...prev.enemyUnits.filter((e) => e.id !== attack.defender.id)] }
+          : { playerUnits: [...prev.playerUnits.filter((e) => e.id !== attack.defender.id)] };
         return {
           ...prev,
           ...newState,
@@ -377,34 +293,63 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           battleLog: [
             ...prev.battleLog,
             {
-              message: `${attackerName} ${attack.name} and killed ${defenderName}`,
+              message: `${attackerName} ${AttackType[typeOfAttack]}ed and killed ${defenderName}`,
             },
           ],
         };
       });
     }
-    await wait(turntimer);
+  };
+
+  const attackFaction = (unit: Unit, enemyAttacking: boolean) => {
     setState((prev) => {
-      return {
-        ...prev,
-        overlays: prev.overlays.filter((o) => o.type !== OverlayType.Attack),
-      };
+      const newHealthTotal = enemyAttacking
+        ? {
+            playerHealth: prev.playerHealth - unit.damage,
+            enemyHealth: prev.enemyHealth,
+          }
+        : {
+            enemyHealth: prev.enemyHealth - unit.damage,
+            playerHealth: prev.playerHealth,
+          };
+      if (newHealthTotal.enemyHealth <= 0 || newHealthTotal.playerHealth <= 0) {
+        //end the fight
+        const endState = newHealthTotal.enemyHealth <= 0 ? Endstate.Won : Endstate.Lost;
+        return { ...prev, ...newHealthTotal, endState: endState };
+      } else {
+        const attackedPlayerName = enemyAttacking ? "You" : "Enemy";
+        const attackerName = (enemyAttacking ? "Enemy" : "Your") + " " + unitName(unit.type);
+        return {
+          ...prev,
+          ...newHealthTotal,
+          battleLog: [
+            ...prev.battleLog,
+            {
+              message: `${attackerName} attacks ${attackedPlayerName} for ${unit.damage}`,
+            },
+          ],
+        };
+      }
     });
   };
 
+  // this moves and attacks
+  // "business logic" for damage to player lives here
+  // doAttack has the rest of the logic, while
   const moveUnits = async (units: Unit[], enemy: boolean) => {
     const yMod = enemy ? 1 : -1;
-    //this should also handle attacking after move is done
     units.sort((a, b) => a.id - b.id);
+    //for all units
     for (let i = 0; i < units.length; i++) {
       let unit = units[i];
+      //loop move pattern
       for (let j = 0; j < unit.movePattern.length; j++) {
         const friendlyUnits = enemy ? state.enemyUnits : state.playerUnits;
         const unFriendlyUnits = enemy ? state.playerUnits : state.enemyUnits;
-        const move = unit.movePattern[j];
+        const move = { x: unit.movePattern[j].x, y: unit.movePattern[j].y * yMod };
         const newPos = {
           x: unit.pos.x + move.x,
-          y: unit.pos.y + move.y * yMod,
+          y: unit.pos.y + move.y,
         };
         const moveEffects = calculateMoveEffects(
           unit,
@@ -414,6 +359,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           unFriendlyUnits,
           false
         );
+
         for (let g = 0; g < moveEffects.length; g++) {
           const effect = moveEffects[g];
           if (effect.move !== undefined) {
@@ -426,6 +372,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           break;
         }
       }
+
       for (let j = 0; j < unit.attackPattern.length; j++) {
         const friendlyUnits = enemy ? state.enemyUnits : state.playerUnits;
         const unFriendlyUnits = enemy ? state.playerUnits : state.enemyUnits;
@@ -434,64 +381,37 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           x: unit.pos.x + attack.x,
           y: unit.pos.y + attack.y * yMod,
         };
-        const enemyUnitOnSpace = unFriendlyUnits.find((e) =>
-          posEq(attackPos, e.pos)
-        );
-        const friendlyUnitOnSpace = friendlyUnits.find((e) =>
-          posEq(attackPos, e.pos)
-        );
-        if (enemyUnitOnSpace) {
-          await doAttack({
-            name: "attacks",
+        const enemyUnitOnSpace = unFriendlyUnits.find((e) => posEq(attackPos, e.pos));
+        const friendlyUnitOnSpace = friendlyUnits.find((e) => posEq(attackPos, e.pos));
+        if (enemyUnitOnSpace && unit.attackType !== AttackType.Heal) {
+          doAttack({
             attacker: unit,
             defender: enemyUnitOnSpace,
+            type: unit.attackType,
+          });
+        } else if (friendlyUnitOnSpace && unit.attackType === AttackType.Heal) {
+          doAttack({
+            attacker: unit,
+            defender: friendlyUnitOnSpace,
+            type: unit.attackType,
           });
         } else if ((!enemy && attackPos.y < 0) || (enemy && attackPos.y > 5)) {
-          //attack opponents health total
-          setState((prev) => {
-            const newHealthTotal = enemy
-              ? {
-                  playerHealth: prev.playerHealth - unit.damage,
-                  enemyHealth: prev.enemyHealth,
-                }
-              : {
-                  enemyHealth: prev.enemyHealth - unit.damage,
-                  playerHealth: prev.playerHealth,
-                };
-            if (
-              newHealthTotal.enemyHealth <= 0 ||
-              newHealthTotal.playerHealth <= 0
-            ) {
-              //end the fight
-              const endState =
-                newHealthTotal.enemyHealth <= 0 ? Endstate.Won : Endstate.Lost;
-              return { ...prev, ...newHealthTotal, endState: endState };
-            } else {
-              const attackedPlayerName = enemy ? "You" : "Enemy";
-              const attackerName =
-                (enemy ? "Enemy" : "Your") + " " + unitName(unit.type);
-              return {
-                ...prev,
-                ...newHealthTotal,
-                battleLog: [
-                  ...prev.battleLog,
-                  {
-                    message: `${attackerName} attacks ${attackedPlayerName} for ${unit.damage}`,
-                  },
-                ],
-              };
-            }
-          });
+          attackFaction(unit, enemy);
         }
         //TODO maybe friendly fire for some? leave for now
       }
+      await wait(turntimer);
+
+      setState((prev) => {
+        return {
+          ...prev,
+          overlays: prev.overlays.filter((o) => o.type !== OverlayType.Attack),
+        };
+      });
     }
   };
 
-  const setDrawnCards = (
-    [drawn, discard, deck]: BattleCard[][],
-    enemy: boolean
-  ) => {
+  const setDrawnCards = ([drawn, discard, deck]: BattleCard[][], enemy: boolean) => {
     const newState = enemy
       ? { enemyDrawn: drawn, enemyDiscard: discard, enemyCards: deck }
       : { playerDrawn: drawn, playerDiscard: discard, playerCards: deck };
@@ -553,8 +473,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           battleLog: [
             ...prev.battleLog,
             {
-              message:
-                "Not enough energy, " + card.energyRequired + " required",
+              message: "Not enough energy, " + card.energyRequired + " required",
             },
           ],
         };
@@ -582,18 +501,13 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   };
 
   const selectCard = (card?: BattleCard) => {
-    //TODO show a preview of the move/attack pattern?
     const occupiedXPositions = [
-      ...state.enemyUnits
-        .filter((u) => u.pos.y === gridSize.height - 1)
-        .map((u) => u.pos.x),
-      ...state.playerUnits
-        .filter((u) => u.pos.y === gridSize.height - 1)
-        .map((u) => u.pos.x),
+      ...state.enemyUnits.filter((u) => u.pos.y === gridSize.height - 1).map((u) => u.pos.x),
+      ...state.playerUnits.filter((u) => u.pos.y === gridSize.height - 1).map((u) => u.pos.x),
     ];
-    const unoccupiedXPositions = Array.from(
-      Array(gridSize.width).keys()
-    ).filter((x) => occupiedXPositions.find((o) => o === x) === undefined);
+    const unoccupiedXPositions = Array.from(Array(gridSize.width).keys()).filter(
+      (x) => occupiedXPositions.find((o) => o === x) === undefined
+    );
 
     const overlays: Overlay[] = [];
     if (card) {
@@ -628,11 +542,35 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     });
   };
 
+  //here begins the game loop
+
+  const [hasStarted, setHasStarted] = useState(false);
   const [hasMovedPlayerUnits, setHasMovedPlayerUnits] = useState("");
   const [hasDrawnCards, sethasDrawnCards] = useState("");
   const [hasPlacedEnemyUnits, setHasPlacedEnemyUnits] = useState("");
   const [hasMovedEnemyUnits, setHasMovedEnemyUnits] = useState("");
 
+  // runs once on first render to start enemys turn
+  useEffect(() => {
+    if (!hasStarted) {
+      setRunEnemyTurn(true);
+      setHasStarted(true);
+    }
+  }, [setRunEnemyTurn, setHasStarted, hasStarted]);
+
+  // this is the main game loop
+  useDidMountEffect(() => {
+    const doTurn = async () => {
+      await moveUnits(state.playerUnits, false);
+      setHasMovedPlayerUnits(keyString());
+    };
+    if (runEnemyTurn) {
+      doTurn();
+    }
+    // eslint-disable-next-line
+  }, [runEnemyTurn]);
+
+  //draw new enemy cards
   useDidMountEffect(() => {
     const [newDrawn, newDiscard, newRemaining] = drawCards(
       [...state.enemyDiscard],
@@ -643,6 +581,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     sethasDrawnCards(keyString());
   }, [hasMovedPlayerUnits, sethasDrawnCards]);
 
+  // place enemy units
   useDidMountEffect(() => {
     const doAsync = async () => {
       await placeEnemyUnits(state.enemyDrawn);
@@ -651,6 +590,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     doAsync();
   }, [hasDrawnCards, setHasPlacedEnemyUnits]);
 
+  // move enemy units
   useDidMountEffect(() => {
     const doAsync = async () => {
       await moveUnits(state.enemyUnits, true);
@@ -659,45 +599,21 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     doAsync();
   }, [hasPlacedEnemyUnits, setHasMovedEnemyUnits]);
 
+  // draw player cards, refill energy and pause the auto running
   useDidMountEffect(() => {
-    console.log("end of turn");
-    console.log(state.playerDiscard);
-
     const drawnPlayerCards = drawCards(
       [...state.playerDiscard],
       [...state.playerDrawn],
       [...state.playerCards]
     );
-    console.log(drawnPlayerCards);
-
     setDrawnCards(drawnPlayerCards, false);
-
     setRunEnemyTurn(false);
+
     setState((prev) => {
-      return { ...prev, playerEnergy: prev.playerEnergyMax };
+      return { ...prev, playerEnergy: prev.playerEnergyMax + accumulatedEnergy };
     });
+    setAccumulatedEnergy(0);
   }, [hasMovedEnemyUnits]);
-
-  // this is the main game loop
-  useDidMountEffect(() => {
-    console.log("game loop");
-
-    const doTurn = async () => {
-      //return new state here, I guess
-      //I think every function needs to return its new state
-      await moveUnits(state.playerUnits, false);
-      setHasMovedPlayerUnits(keyString());
-    };
-    if (runEnemyTurn) {
-      doTurn();
-    }
-    //fix this eventually, not sur ehwo game loop should actually work...
-    // eslint-disable-next-line
-  }, [runEnemyTurn]);
-
-  useEffect(() => {
-    setRunEnemyTurn(true);
-  }, [setRunEnemyTurn]);
 
   return (
     <div
@@ -793,10 +709,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           style={{ textAlign: "center", cursor: "pointer" }}
         >
           <span>End Turn</span>
-          <EndTurnButton
-            style={{ height: "50px", width: "30px" }}
-            active={runEnemyTurn}
-          />
+          <EndTurnButton style={{ height: "50px", width: "30px" }} active={runEnemyTurn} />
         </div>
 
         <div />

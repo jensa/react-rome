@@ -1,4 +1,4 @@
-import { PatternPart, Unit } from "../battleState";
+import { AttackType, PatternPart, Unit } from "../battleState";
 import { hasTag, posEq } from "../util";
 import { Coord } from "../worldState";
 import { Attack } from "./battleScene";
@@ -29,21 +29,25 @@ const calculateMoveEffects = (
   unfriendlyUnits: Unit[],
   destructive: boolean
 ) => {
-  const enemyUnitOnSpace = unfriendlyUnits.find((e) =>
-    posEq(toPosition, e.pos)
-  );
-  const friendlyUnitOnSpace = friendlyUnits.find((e) =>
-    posEq(toPosition, e.pos)
-  );
+  if (hasTag(unit, "passthrough")) {
+    console.log(
+      `Moving through from ${JSON.stringify(unit.pos)} to ${JSON.stringify(
+        toPosition
+      )} using move ${JSON.stringify(move)}`
+    );
+  }
+  const enemyUnitOnSpace = unfriendlyUnits.find((e) => posEq(toPosition, e.pos));
+  const friendlyUnitOnSpace = friendlyUnits.find((e) => posEq(toPosition, e.pos));
 
   let unitLayerOk = false;
-  const effects: MoveResult[] = [];
+  const preEffects: MoveResult[] = [];
+  const postEffects: MoveResult[] = [];
   if (friendlyUnitOnSpace && destructive) {
-    effects.push({
+    preEffects.push({
       attack: {
-        name: "pushed into",
         attacker: unit,
         defender: friendlyUnitOnSpace,
+        type: AttackType.Push
       },
     });
   } else if (friendlyUnitOnSpace || enemyUnitOnSpace) {
@@ -53,7 +57,7 @@ const calculateMoveEffects = (
       const sameTeam = friendlyUnitOnSpace !== undefined;
       const affectedFriendlies = sameTeam ? friendlyUnits : unfriendlyUnits;
       const affectedEnemies = sameTeam ? unfriendlyUnits : friendlyUnits;
-      effects.push(
+      preEffects.push(
         ...calculateMoveEffects(
           affectedUnit,
           { x: toPosition.x + move.x, y: toPosition.y + move.y },
@@ -64,6 +68,19 @@ const calculateMoveEffects = (
         )
       );
     }
+    if (hasTag(unit, "passthrough")) {
+      postEffects.push(
+        ...calculateMoveEffects(
+          unit,
+          { x: toPosition.x + move.x, y: toPosition.y + move.y },
+          move,
+          friendlyUnits,
+          unfriendlyUnits,
+          false
+        )
+      );
+      unitLayerOk = true;
+    }
   } else {
     unitLayerOk = true;
   }
@@ -71,9 +88,9 @@ const calculateMoveEffects = (
   const gridLayerOk = toPosition.y >= 0 && toPosition.y < 6;
 
   if (unitLayerOk && gridLayerOk) {
-    effects.push({ move: { unit: unit, pos: toPosition } });
+    preEffects.push({ move: { unit: unit, pos: toPosition } });
   }
-  return effects;
+  return [...preEffects, ...postEffects];
 };
 
 export default calculateMoveEffects;
