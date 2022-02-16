@@ -3,12 +3,10 @@ import "./turnBall.css";
 
 const TurnBall: React.FC<{
   style?: React.CSSProperties;
-  onClick: () => void;
   active: boolean;
-}> = ({ style, onClick, active }) => {
+}> = ({ style, active }) => {
   return (
     <div
-      onClick={onClick}
       className={active ? "turnball" : ""}
       style={{
         textAlign: "center",

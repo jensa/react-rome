@@ -68,7 +68,9 @@ const calculateMoveEffects = (
     unitLayerOk = true;
   }
 
-  if (unitLayerOk) {
+  const gridLayerOk = toPosition.y >= 0 && toPosition.y < 6;
+
+  if (unitLayerOk && gridLayerOk) {
     effects.push({ move: { unit: unit, pos: toPosition } });
   }
   return effects;

@@ -8,9 +8,17 @@ import BattleState, {
 import Button from "../button";
 import EndTurnButton from "../components/turnBall";
 import SceneState, { Scene } from "../sceneState";
-import { getRandomInt, hasTag, posAdd, posEq, shuffleArray } from "../util";
+import {
+  getRandomInt,
+  hasTag,
+  keyString,
+  posAdd,
+  posEq,
+  shuffleArray,
+} from "../util";
 import { BattleTerrainType } from "../utils/battleMapUtil";
 import { unitName } from "../utils/cardUtils";
+import useDidMountEffect from "../utils/useDidMountEffect";
 import WorldState, { Coord } from "../worldState";
 import BattleLog, { BattleLogEntry } from "./battleLog";
 import Board from "./board";
@@ -22,6 +30,11 @@ import PlayerCardDisplay from "./playerCardDisplay";
 import TooltipWindow, { TooltipEntity } from "./tooltipWindow";
 
 const turntimer = 500;
+
+enum Endstate {
+  Won,
+  Lost,
+}
 
 type BattleSceneState = {
   enemyEnergyMax: number;
@@ -42,6 +55,11 @@ type BattleSceneState = {
   idCounter: number;
   cardIdCounter: number;
   selectedCard?: BattleCard;
+  playerHealth: number;
+  enemyHealth: number;
+  playerMaxHealth: number;
+  enemyMaxHealth: number;
+  endState?: Endstate;
 };
 
 const initialState: BattleSceneState = {
@@ -65,6 +83,10 @@ const initialState: BattleSceneState = {
   overlays: [],
   idCounter: 0,
   cardIdCounter: 0,
+  playerHealth: 10,
+  enemyHealth: 10,
+  playerMaxHealth: 10,
+  enemyMaxHealth: 10,
 };
 
 export type Attack = {
@@ -109,6 +131,16 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   });
 
   const [runEnemyTurn, setRunEnemyTurn] = useState(false);
+
+  useDidMountEffect(() => {
+    console.log("its ending yo");
+    if (state.endState === Endstate.Won) {
+      defeatEnemy({ ...enemy, defeatedAt: new Date() });
+      changeScene(Scene.Worldmap);
+    } else {
+      changeScene(Scene.Intro);
+    }
+  }, [state.endState]);
 
   const placeEnemyUnits = async (drawn: BattleCard[]) => {
     let energyLeft = state.enemyEnergyMax;
@@ -414,6 +446,42 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
             attacker: unit,
             defender: enemyUnitOnSpace,
           });
+        } else if ((!enemy && attackPos.y < 0) || (enemy && attackPos.y > 5)) {
+          //attack opponents health total
+          setState((prev) => {
+            const newHealthTotal = enemy
+              ? {
+                  playerHealth: prev.playerHealth - unit.damage,
+                  enemyHealth: prev.enemyHealth,
+                }
+              : {
+                  enemyHealth: prev.enemyHealth - unit.damage,
+                  playerHealth: prev.playerHealth,
+                };
+            if (
+              newHealthTotal.enemyHealth <= 0 ||
+              newHealthTotal.playerHealth <= 0
+            ) {
+              //end the fight
+              const endState =
+                newHealthTotal.enemyHealth <= 0 ? Endstate.Won : Endstate.Lost;
+              return { ...prev, ...newHealthTotal, endState: endState };
+            } else {
+              const attackedPlayerName = enemy ? "You" : "Enemy";
+              const attackerName =
+                (enemy ? "Enemy" : "Your") + " " + unitName(unit.type);
+              return {
+                ...prev,
+                ...newHealthTotal,
+                battleLog: [
+                  ...prev.battleLog,
+                  {
+                    message: `${attackerName} attacks ${attackedPlayerName} for ${unit.damage}`,
+                  },
+                ],
+              };
+            }
+          });
         }
         //TODO maybe friendly fire for some? leave for now
       }
@@ -507,6 +575,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         playerUnits: [...prev.playerUnits, newUnit],
         playerEnergy: newEnergyLevel,
         playerDrawn: [...prev.playerDrawn.filter((c) => c.id !== card.id)],
+        playerDiscard: [...prev.playerDiscard, card],
       };
     });
     selectCard(undefined);
@@ -559,64 +628,65 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     });
   };
 
-  const [hasMovedPlayerUnits, setHasMovedPlayerUnits] = useState(false);
-  const [hasDrawnCards, sethasDrawnCards] = useState(false);
-  const [hasPlacedEnemyUnits, setHasPlacedEnemyUnits] = useState(false);
-  const [hasMovedEnemyUnits, setHasMovedEnemyUnits] = useState(false);
+  const [hasMovedPlayerUnits, setHasMovedPlayerUnits] = useState("");
+  const [hasDrawnCards, sethasDrawnCards] = useState("");
+  const [hasPlacedEnemyUnits, setHasPlacedEnemyUnits] = useState("");
+  const [hasMovedEnemyUnits, setHasMovedEnemyUnits] = useState("");
 
-  useEffect(() => {
+  useDidMountEffect(() => {
     const [newDrawn, newDiscard, newRemaining] = drawCards(
       [...state.enemyDiscard],
       [...state.enemyDrawn],
       [...state.enemyCards]
     );
     setDrawnCards([newDrawn, newDiscard, newRemaining], true);
-    sethasDrawnCards(true);
+    sethasDrawnCards(keyString());
   }, [hasMovedPlayerUnits, sethasDrawnCards]);
 
-  useEffect(() => {
-    const [newDrawn, newDiscard, newRemaining] = drawCards(
-      [...state.enemyDiscard],
-      [...state.enemyDrawn],
-      [...state.enemyCards]
+  useDidMountEffect(() => {
+    const doAsync = async () => {
+      await placeEnemyUnits(state.enemyDrawn);
+      setHasPlacedEnemyUnits(keyString());
+    };
+    doAsync();
+  }, [hasDrawnCards, setHasPlacedEnemyUnits]);
+
+  useDidMountEffect(() => {
+    const doAsync = async () => {
+      await moveUnits(state.enemyUnits, true);
+      setHasMovedEnemyUnits(keyString());
+    };
+    doAsync();
+  }, [hasPlacedEnemyUnits, setHasMovedEnemyUnits]);
+
+  useDidMountEffect(() => {
+    console.log("end of turn");
+    console.log(state.playerDiscard);
+
+    const drawnPlayerCards = drawCards(
+      [...state.playerDiscard],
+      [...state.playerDrawn],
+      [...state.playerCards]
     );
-    setDrawnCards([newDrawn, newDiscard, newRemaining], true);
-    sethasDrawnCards(true);
-  }, [hasMovedPlayerUnits, sethasDrawnCards]);
+    console.log(drawnPlayerCards);
+
+    setDrawnCards(drawnPlayerCards, false);
+
+    setRunEnemyTurn(false);
+    setState((prev) => {
+      return { ...prev, playerEnergy: prev.playerEnergyMax };
+    });
+  }, [hasMovedEnemyUnits]);
 
   // this is the main game loop
-  useEffect(() => {
+  useDidMountEffect(() => {
+    console.log("game loop");
+
     const doTurn = async () => {
       //return new state here, I guess
       //I think every function needs to return its new state
       await moveUnits(state.playerUnits, false);
-      setHasMovedPlayerUnits(true);
-      //here the state can have changed through multiple setState(), but we don't know how it changed
-
-      const [newDrawn, newDiscard, newRemaining] = drawCards(
-        [...state.enemyDiscard],
-        [...state.enemyDrawn],
-        [...state.enemyCards]
-      );
-      setDrawnCards([newDrawn, newDiscard, newRemaining], true);
-      const newUnits = await placeEnemyUnits(newDrawn);
-
-      //moveUnits really need ot return the moved units
-      // keep a state copy and update it directly - is this the way?
-
-      await moveUnits(newUnits, true);
-
-      const drawnPlayerCards = drawCards(
-        [...state.playerDiscard],
-        [...state.playerDrawn],
-        [...state.playerCards]
-      );
-      setDrawnCards(drawnPlayerCards, false);
-
-      setRunEnemyTurn(false);
-      setState((prev) => {
-        return { ...prev, playerEnergy: prev.playerEnergyMax };
-      });
+      setHasMovedPlayerUnits(keyString());
     };
     if (runEnemyTurn) {
       doTurn();
@@ -651,10 +721,26 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
       >
         <Deck fill={enemy.color} cardsLeft={state.enemyCards.length} />
         <div />
-        <div>{"Energy: " + state.enemyEnergy + "/" + state.enemyEnergyMax}</div>
+        <div>
+          {"Energy: " +
+            state.enemyEnergy +
+            "/" +
+            state.enemyEnergyMax +
+            " Health:" +
+            state.enemyHealth +
+            "/" +
+            state.enemyMaxHealth}
+        </div>
         <div />
         <div>
-          {"Energy: " + state.playerEnergy + "/" + state.playerEnergyMax}
+          {"Energy: " +
+            state.playerEnergy +
+            "/" +
+            state.playerEnergyMax +
+            " Health:" +
+            state.playerHealth +
+            "/" +
+            state.playerMaxHealth}
         </div>
         <Deck fill={playerTribe.color} cardsLeft={state.playerCards.length} />
       </div>
@@ -700,22 +786,20 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         <div />
         <BattleLog log={state.battleLog} />
         <div />
-        <EndTurnButton
+        <div
           onClick={() => {
             setRunEnemyTurn(true);
           }}
-          style={{ height: "50px", width: "30px" }}
-          active={runEnemyTurn}
-        />
+          style={{ textAlign: "center", cursor: "pointer" }}
+        >
+          <span>End Turn</span>
+          <EndTurnButton
+            style={{ height: "50px", width: "30px" }}
+            active={runEnemyTurn}
+          />
+        </div>
+
         <div />
-        <Button
-          title="Win fight"
-          style={{ width: "100%" }}
-          onClick={() => {
-            defeatEnemy({ ...enemy, defeatedAt: new Date() });
-            changeScene(Scene.Worldmap);
-          }}
-        />
       </div>
     </div>
   );
