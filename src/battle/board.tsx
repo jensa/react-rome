@@ -112,19 +112,25 @@ const UnitDisplay: React.FC<{ unit: Unit; color: string; select: () => void }> =
           width: "10vw",
           height: "10vh",
           cursor: "pointer",
-          border: "1px dashed " + color,
-          filter: `drop-shadow(2px 4px 6px black) hue-rotate(${filterDegs}deg)`,
         }}
         onClick={(e) => {
           e.stopPropagation();
           select();
         }}
       >
-        <img
-          alt={"" + unit.pos.x + unit.pos.y}
-          src={unit.image}
-          style={{ width: "100%", height: "100%" }}
-        ></img>
+        <div
+          style={{
+            filter: `drop-shadow(2px 4px 6px black) hue-rotate(${filterDegs}deg)`,
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          <img
+            alt={"" + unit.pos.x + unit.pos.y}
+            src={unit.image}
+            style={{ width: "100%", height: "100%" }}
+          ></img>
+        </div>
         <span
           style={{
             position: "absolute",
