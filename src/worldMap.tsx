@@ -206,7 +206,7 @@ const TooltipBox: React.FC<{
       }}
     >
       <p style={{ height: "80%" }}>{selectedItem}</p>
-      {selectedItem !== "" && !selectedEnemy?.defeatedAt && (
+      {selectedItem !== "" && selectedEnemy && !selectedEnemy?.defeatedAt && (
         <Button
           title="FIGHT"
           onClick={() => {
