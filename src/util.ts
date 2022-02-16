@@ -1,10 +1,13 @@
+import { Unit } from "./battleState";
+import { Coord } from "./worldState";
+
 const getRandomInt = (min: number, max: number) => {
   min = Math.ceil(min);
   max = Math.floor(max);
   return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
 };
 
-function shuffleArray(array: any[]) {
+const shuffleArray = (array: any[]) => {
   let currentIndex = array.length,
     randomIndex;
 
@@ -22,9 +25,18 @@ function shuffleArray(array: any[]) {
   }
 
   return array;
-}
+};
 
-function keyString() {
+const posEq = (a: Coord, b: Coord) => {
+  return a.x === b.x && b.y === a.y;
+};
+
+const posAdd = (a: Coord, b: Coord, enemy: boolean) => {
+  const yMod = enemy ? 1 : -1;
+  return { x: a.x + b.x, y: a.y + b.y * yMod };
+};
+
+const keyString = () => {
   // Public Domain/MIT
   var d = new Date().getTime(); //Timestamp
   var d2 =
@@ -45,7 +57,7 @@ function keyString() {
     }
     return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
-}
+};
 
 const enemyName = () => {
   const consonants = [
@@ -87,4 +99,16 @@ const enemyName = () => {
   return name;
 };
 
-export { enemyName, getRandomInt, keyString, shuffleArray };
+const hasTag = (u: Unit, tag: string) => {
+  return u.tags?.find((t) => t === tag) !== undefined;
+};
+
+export {
+  enemyName,
+  getRandomInt,
+  keyString,
+  shuffleArray,
+  posEq,
+  hasTag,
+  posAdd,
+};

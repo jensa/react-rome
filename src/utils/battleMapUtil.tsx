@@ -5,7 +5,20 @@ import forestTerrain from "../png/terrainTiles/forest.png";
 import { Coord } from "../worldState";
 import { BattleMap } from "../battleState";
 
-const battleTerrainTiles = [waterTerrain, mountainTerrain, forestTerrain];
+export enum BattleTerrainType {
+  Water,
+  Mountain,
+  Forest,
+  Plain,
+}
+
+const battleTerrainTiles = [
+  BattleTerrainType.Water,
+  BattleTerrainType.Mountain,
+  BattleTerrainType.Forest,
+];
+
+const terrainImages = [waterTerrain, mountainTerrain, forestTerrain];
 
 const generateBattlemap: () => BattleMap = () => {
   /*
@@ -56,11 +69,17 @@ const generateBattlemap: () => BattleMap = () => {
   }
   shuffleArray(squares);
   const terrainTilesToDraw = terrainTiles.map((t, i) => {
-    return { img: t, coord: squares[i] };
+    return { terrain: t, coord: squares[i] };
   });
-  console.log(terrainTilesToDraw);
-
   return { terrainTiles: terrainTilesToDraw };
 };
+
+const terrainImage: (terrain: BattleTerrainType) => string = (
+  terrain: BattleTerrainType
+) => {
+  return terrainImages[terrain] ?? "";
+};
+
+export { terrainImage };
 
 export default generateBattlemap;

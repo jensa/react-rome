@@ -1,9 +1,10 @@
 import create from "zustand";
 import { persist } from "zustand/middleware";
+import { BattleTerrainType } from "./utils/battleMapUtil";
 import { Coord, Enemy } from "./worldState";
 
 type Terraintile = {
-  img: string;
+  terrain: BattleTerrainType;
   coord: Coord;
 };
 
@@ -43,12 +44,17 @@ export type Unit = UnitType & {
   id: number;
   currentHealth: number;
   pos: Coord;
+  enemy: boolean;
 };
 
 export type Card = {
   unit: UnitType;
   image: string;
   energyRequired: number;
+};
+
+export type BattleCard = Card & {
+  id: number;
 };
 
 type BattleState = {

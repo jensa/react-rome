@@ -1,0 +1,41 @@
+@keyframes scaleUpScaleDownSmall {
+  0% {
+    transform: scale3d(0.5, 0.5, 1);
+  }
+  100% {
+    transform: scale3d(0.2, 0.2, 1);
+  }
+}
+.growing-shrinking-small {
+  animation: scaleUpScaleDownSmall 1s linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes scaleUpScaleDownLarge {
+  0% {
+    transform: scale3d(0.7, 0.7, 1);
+  }
+  100% {
+    transform: scale3d(0.2, 0.2, 1);
+  }
+}
+.growing-shrinking-large {
+  animation: scaleUpScaleDownLarge 1s linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes scaleUpScaleDownFullSize {
+  0% {
+    transform: scale3d(0.9, 0.9, 1);
+  }
+  100% {
+    transform: scale3d(0.3, 0.3, 1);
+  }
+}
+.growing-shrinking-fullsize {
+  animation: scaleUpScaleDownFullSize 1s linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate-reverse;
+}

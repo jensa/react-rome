@@ -1,7 +1,7 @@
 import IntroScreen from "./intro";
 import SceneState, { Scene } from "./sceneState";
 import WorldMapScreen from "./worldMap";
-import BattleScreen from "./battleScene";
+import BattleScreen from "./battle/battleScene";
 
 function App() {
   const currentState = SceneState((s) => s.state);

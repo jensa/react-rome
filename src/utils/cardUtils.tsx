@@ -211,4 +211,8 @@ const generateDeck: (types: number) => Card[] = (types) => {
     return { ...archeType[getRandomInt(0, archeType.length)] };
   });
 };
-export { getCard, generateDeck };
+
+const unitName = (type: UnitTypes) => {
+  return UnitTypes[type];
+};
+export { getCard, generateDeck, unitName };
