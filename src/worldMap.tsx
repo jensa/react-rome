@@ -12,7 +12,7 @@ import WorldState, {
   Terrain,
 } from "./worldState";
 import BattleState from "./battleState";
-import { enemyName } from "./util";
+import { enemyName, getRandomInt, hslaDegs } from "./util";
 import generateBattlemap from "./utils/battleMapUtil";
 import { generateDeck } from "./utils/cardUtils";
 
@@ -26,18 +26,36 @@ const coordKey = (i: Coord) => {
   return `${i.x}:${i.y}`;
 };
 
-const createEnemy = (defeatedEnemiesCount: number, home: Coord) => {
-  //create a deck of cards here using some util
+const createEnemy = (
+  defeatedEnemiesCount: number,
+  home: Coord,
+  playerColor: string,
+  index: number
+) => {
+  const playerDegs = hslaDegs(playerColor);
+  const [offsetMin, offsetMax] = [90 * index - 45, 90 * index];
+  const [enemyDegMin, enemyDegMax] = [
+    playerDegs + offsetMin,
+    playerDegs + offsetMax,
+  ];
+
+  const enemyDegs = getRandomInt(enemyDegMin, enemyDegMax) % 360;
   return {
     home: home,
     name: enemyName(),
-    color: "hsla(" + Math.floor(Math.random() * 360) + ", 100%, 70%, 1)",
+    //we can just take colors that are some guaranteed distance on the wheel
+    // we could then just parse the first part when we need to rotate for css filters
+    color: "hsla(" + enemyDegs + ", 100%, 70%, 1)",
     defeatedAt: undefined,
     deck: generateDeck(2 + Math.floor(defeatedEnemiesCount / 2)),
   };
 };
 
-const getEnemies = (defeatedEnemies: Enemy[], offset: Coord) => {
+const getEnemies = (
+  defeatedEnemies: Enemy[],
+  offset: Coord,
+  playerColor: string
+) => {
   const newCoords = [
     {
       x: offset.x + mapWidth * (1 / 10),
@@ -52,8 +70,8 @@ const getEnemies = (defeatedEnemies: Enemy[], offset: Coord) => {
       y: offset.y,
     },
   ];
-  const newEnemies = newCoords.map((n) =>
-    createEnemy(defeatedEnemies.length, n)
+  const newEnemies = newCoords.map((n, i) =>
+    createEnemy(defeatedEnemies.length, n, playerColor, i + 1)
   );
   return [...defeatedEnemies, ...newEnemies];
 };
@@ -83,7 +101,8 @@ const WorldMapScreen: React.FC<{}> = () => {
   const [enemies] = useState(
     getEnemies(
       defeatedEnemies,
-      lastEnemy?.home ? { x: lastEnemy.home.x, y: lastEnemy.home.y } : home
+      lastEnemy?.home ? { x: lastEnemy.home.x, y: lastEnemy.home.y } : home,
+      playerTribe.color
     )
   );
   const [selectedItem, setSelectedItem] = useState("");

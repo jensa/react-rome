@@ -5,6 +5,7 @@ import { Card } from "./battleState";
 export type Tribe = {
   name: string;
   deck: Card[];
+  color: string;
 };
 
 export enum Terrain {
@@ -59,7 +60,7 @@ type WorldState = {
 
 const emptyState = () => {
   return {
-    playerTribe: { name: "none", deck: [] },
+    playerTribe: { name: "none", deck: [], color: "hsla(0, 0%, 0%, 1)" },
     map: { h: 0, w: 0, terrain: [] },
     mapViewPort: { x: 500, y: 500 },
     defeatedEnemies: [],

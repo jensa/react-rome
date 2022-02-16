@@ -3,6 +3,7 @@ import { BattleMap, Unit } from "../battleState";
 import AddUnitOverlayGraphic from "../components/overlays/addUnitOverlayGraphic";
 import AttackOverlayGraphic from "../components/overlays/AttackOverlayGraphic";
 import MoveOverlayGraphic from "../components/overlays/MoveOverlayGraphic";
+import { hslaDegs } from "../util";
 import { terrainImage } from "../utils/battleMapUtil";
 import { Coord } from "../worldState";
 import { Overlay, OverlayType } from "./battleScene";
@@ -99,6 +100,7 @@ const Board: React.FC<{
 
 const UnitDisplay: React.FC<{ unit: Unit; color: string; select: () => void }> =
   ({ unit, color, select }) => {
+    const filterDegs = hslaDegs(color);
     const top = 10 * unit.pos.y;
     const left = 10 * unit.pos.x;
     return (
@@ -111,6 +113,7 @@ const UnitDisplay: React.FC<{ unit: Unit; color: string; select: () => void }> =
           height: "10vh",
           cursor: "pointer",
           border: "1px dashed " + color,
+          filter: `drop-shadow(2px 4px 6px black) hue-rotate(${filterDegs}deg)`,
         }}
         onClick={(e) => {
           e.stopPropagation();

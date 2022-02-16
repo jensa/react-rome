@@ -36,6 +36,10 @@ const posAdd = (a: Coord, b: Coord, enemy: boolean) => {
   return { x: a.x + b.x, y: a.y + b.y * yMod };
 };
 
+const hslaDegs = (color: string) => {
+  return parseInt(color.slice(5, color.indexOf(",")));
+};
+
 const keyString = () => {
   // Public Domain/MIT
   var d = new Date().getTime(); //Timestamp
@@ -111,4 +115,5 @@ export {
   posEq,
   hasTag,
   posAdd,
+  hslaDegs
 };

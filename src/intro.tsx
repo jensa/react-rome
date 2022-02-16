@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { UnitTypes } from "./battleState";
 import SceneState, { Scene } from "./sceneState";
-import { getRandomInt, keyString } from "./util";
+import { getRandomInt, hslaDegs, keyString } from "./util";
 import { getCard } from "./utils/cardUtils";
 import WorldState, { Map, Terrain, Tribe } from "./worldState";
 
@@ -21,6 +21,7 @@ const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         getCard(UnitTypes.Footman),
         getCard(UnitTypes.Knight),
       ],
+      color: "hsla(0, 100%, 70%, 1)",
     },
     {
       name: "The clever",
@@ -31,6 +32,7 @@ const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         getCard(UnitTypes.Catapult),
         getCard(UnitTypes.Thief),
       ],
+      color: "hsla(120, 100%, 70%, 1)",
     },
     {
       name: "The hardy",
@@ -41,6 +43,7 @@ const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         getCard(UnitTypes.Knight),
         getCard(UnitTypes.Healer),
       ],
+      color: "hsla(240, 100%, 70%, 1)",
     },
   ];
   const [selectedTribe, setSelectedTribe] = useState<Tribe | undefined>();
@@ -142,6 +145,7 @@ const StartGameButton: React.FC<{ enabled: boolean; onClick: () => void }> = ({
 
 const TribeInfoBox: React.FC<{ tribe: Tribe }> = ({ tribe }) => {
   const text = `${tribe.name} is a really cool tribe. pick'em.`;
+  const filterDegs = hslaDegs(tribe.color);
   return (
     <div
       style={{
@@ -161,11 +165,20 @@ const TribeInfoBox: React.FC<{ tribe: Tribe }> = ({ tribe }) => {
               style={{ display: "flex", marginRight: "10px" }}
             >
               <span>{UnitTypes[card.unit.type]} </span>
-              <img
-                alt={UnitTypes[card.unit.type]}
-                src={card.unit.image}
-                style={{ height: "20px", width: "15px", marginLeft: "5px" }}
-              ></img>
+              <div
+                style={{
+                  height: "20px",
+                  width: "15px",
+                  marginLeft: "5px",
+                  filter: `drop-shadow(1px 1px 1px black) hue-rotate(${filterDegs}deg)`,
+                }}
+              >
+                <img
+                  alt={UnitTypes[card.unit.type]}
+                  src={card.unit.image}
+                  style={{ height: "100%", width: "100%" }}
+                ></img>
+              </div>
             </div>
           );
         })}
@@ -189,7 +202,7 @@ const TribeSelectionBox: React.FC<{
         width: "100px",
         height: "80px",
         border: "2px solid black",
-        backgroundColor: isSelected ? "green" : "white",
+        backgroundColor: isSelected ? tribe.color : "white",
         cursor: "pointer",
         padding: "10px",
         textAlign: "center",

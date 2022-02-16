@@ -172,12 +172,6 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     return newEnemyUnits;
   };
 
-  const tryAttack = async (
-    attackName: string,
-    attacker: Unit,
-    defender: Unit
-  ) => {};
-
   const tryMoveTo = async (
     unit: Unit,
     toPosition: Coord,
@@ -197,7 +191,13 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     let terrainLayerOk = false;
     const sideEffects: (() => Promise<void>)[] = [];
     if (friendlyUnitOnSpace && destructive) {
-      sideEffects.push(() => tryAttack("push", unit, friendlyUnitOnSpace));
+      sideEffects.push(() =>
+        doAttack({
+          name: "push",
+          attacker: unit,
+          defender: friendlyUnitOnSpace,
+        })
+      );
     } else if (friendlyUnitOnSpace || enemyUnitOnSpace) {
       const affectedUnit = friendlyUnitOnSpace ?? enemyUnitOnSpace!!;
 
@@ -251,7 +251,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     return terrainLayerOk;
   };
 
-  const doMove = (move: Move) => {
+  const doMove = async (move: Move) => {
     const movedUnit = {
       ...move.unit,
       pos: move.pos,
@@ -276,6 +276,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         ...newState,
       };
     });
+    await wait(turntimer);
   };
 
   const doAttack = async (attack: Attack) => {
@@ -384,11 +385,10 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         for (let g = 0; g < moveEffects.length; g++) {
           const effect = moveEffects[g];
           if (effect.move !== undefined) {
-            doMove(effect.move);
+            await doMove(effect.move);
           } else if (effect.attack !== undefined) {
-            doAttack(effect.attack);
+            await doAttack(effect.attack);
           }
-          await wait(turntimer);
         }
         if (moveEffects.length < 1) {
           break;
@@ -468,6 +468,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           ? {
               description: "- " + unitName(unit.type) + " -",
               image: unit.image,
+              color: unit.enemy ? enemy.color : playerTribe.color,
             }
           : undefined,
         overlays: overlays,
@@ -549,6 +550,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                 UnitTypes[card.unit.type] +
                 `: ${card.unit.maxHealth}hp, ${card.unit.damage}dmg, ${card.energyRequired} energy`,
               image: card.unit.image,
+              color: playerTribe.color,
             }
           : undefined,
         selectedCard: card,
@@ -557,10 +559,39 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     });
   };
 
+  const [hasMovedPlayerUnits, setHasMovedPlayerUnits] = useState(false);
+  const [hasDrawnCards, sethasDrawnCards] = useState(false);
+  const [hasPlacedEnemyUnits, setHasPlacedEnemyUnits] = useState(false);
+  const [hasMovedEnemyUnits, setHasMovedEnemyUnits] = useState(false);
+
+  useEffect(() => {
+    const [newDrawn, newDiscard, newRemaining] = drawCards(
+      [...state.enemyDiscard],
+      [...state.enemyDrawn],
+      [...state.enemyCards]
+    );
+    setDrawnCards([newDrawn, newDiscard, newRemaining], true);
+    sethasDrawnCards(true);
+  }, [hasMovedPlayerUnits, sethasDrawnCards]);
+
+  useEffect(() => {
+    const [newDrawn, newDiscard, newRemaining] = drawCards(
+      [...state.enemyDiscard],
+      [...state.enemyDrawn],
+      [...state.enemyCards]
+    );
+    setDrawnCards([newDrawn, newDiscard, newRemaining], true);
+    sethasDrawnCards(true);
+  }, [hasMovedPlayerUnits, sethasDrawnCards]);
+
   // this is the main game loop
   useEffect(() => {
     const doTurn = async () => {
+      //return new state here, I guess
+      //I think every function needs to return its new state
       await moveUnits(state.playerUnits, false);
+      setHasMovedPlayerUnits(true);
+      //here the state can have changed through multiple setState(), but we don't know how it changed
 
       const [newDrawn, newDiscard, newRemaining] = drawCards(
         [...state.enemyDiscard],
@@ -569,12 +600,16 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
       );
       setDrawnCards([newDrawn, newDiscard, newRemaining], true);
       const newUnits = await placeEnemyUnits(newDrawn);
+
+      //moveUnits really need ot return the moved units
+      // keep a state copy and update it directly - is this the way?
+
       await moveUnits(newUnits, true);
 
       const drawnPlayerCards = drawCards(
-        [...state.enemyDiscard],
-        [...state.enemyDrawn],
-        [...state.enemyCards]
+        [...state.playerDiscard],
+        [...state.playerDrawn],
+        [...state.playerCards]
       );
       setDrawnCards(drawnPlayerCards, false);
 
@@ -621,7 +656,7 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         <div>
           {"Energy: " + state.playerEnergy + "/" + state.playerEnergyMax}
         </div>
-        <Deck fill="lightgreen" cardsLeft={state.playerCards.length} />
+        <Deck fill={playerTribe.color} cardsLeft={state.playerCards.length} />
       </div>
       <div
         style={{
@@ -641,14 +676,14 @@ const BattleScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
             enemyUnits={state.enemyUnits}
             playerUnits={state.playerUnits}
             overlays={state.overlays}
-            unitColors={["lightgreen", enemy.color]}
+            unitColors={[playerTribe.color, enemy.color]}
             select={selectUnit}
           />
         )}
         <div />
         <PlayerCardDisplay
           cards={state.playerDrawn}
-          color={"lightgreen"}
+          color={playerTribe.color}
           select={selectCard}
         />
       </div>

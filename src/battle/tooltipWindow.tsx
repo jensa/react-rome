@@ -1,13 +1,17 @@
+import { hslaDegs } from "../util";
 
 export type TooltipEntity = {
   description: string;
   image?: string;
+  color?: string;
 };
 
 const TooltipWindow: React.FC<{
   style?: React.CSSProperties;
   activeTooltip?: TooltipEntity;
 }> = ({ style, activeTooltip }) => {
+  const filterDegs = activeTooltip?.color ? hslaDegs(activeTooltip.color!!) : 0;
+
   return (
     <div
       style={{
@@ -24,11 +28,20 @@ const TooltipWindow: React.FC<{
     >
       {activeTooltip?.description && <span>{activeTooltip.description}</span>}
       {activeTooltip?.image && (
-        <img
-          style={{ height: "50px", width: "50px", marginTop: "30px" }}
-          alt={activeTooltip.description}
-          src={activeTooltip.image}
-        />
+        <div
+          style={{
+            height: "50px",
+            width: "50px",
+            marginTop: "30px",
+            filter: `drop-shadow(2px 2px 2px black) hue-rotate(${filterDegs}deg)`,
+          }}
+        >
+          <img
+            style={{ height: "100%", width: "100%" }}
+            alt={activeTooltip.description}
+            src={activeTooltip.image}
+          />
+        </div>
       )}
     </div>
   );
