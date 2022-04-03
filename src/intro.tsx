@@ -16,10 +16,13 @@ const IntroScreen: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
       name: "The opulent",
       deck: [
         getCard(UnitTypes.Defender),
+        getCard(UnitTypes.Defender),
+        getCard(UnitTypes.Defender),
+        getCard(UnitTypes.Defender),
         getCard(UnitTypes.Footman),
         getCard(UnitTypes.Footman),
         getCard(UnitTypes.Footman),
-        getCard(UnitTypes.Knight),
+        getCard(UnitTypes.Footman),
       ],
       color: "hsla(0, 100%, 70%, 1)",
     },
@@ -158,30 +161,29 @@ const TribeInfoBox: React.FC<{ tribe: Tribe }> = ({ tribe }) => {
     >
       <span>{text}</span>
       <div style={{ display: "flex", flexDirection: "row", marginTop: "10px" }}>
-        {tribe.deck.map((card) => {
-          return (
-            <div
-              key={keyString()}
-              style={{ display: "flex", marginRight: "10px" }}
-            >
-              <span>{UnitTypes[card.unit.type]} </span>
-              <div
-                style={{
-                  height: "20px",
-                  width: "15px",
-                  marginLeft: "5px",
-                  filter: `drop-shadow(1px 1px 1px black) hue-rotate(${filterDegs}deg)`,
-                }}
-              >
-                <img
-                  alt={UnitTypes[card.unit.type]}
-                  src={card.unit.image}
-                  style={{ height: "100%", width: "100%" }}
-                ></img>
+        {tribe.deck
+          .filter((e, i, s) => s.indexOf(e) === i)
+          .map((card) => {
+            return (
+              <div key={keyString()} style={{ display: "flex", marginRight: "10px" }}>
+                <span>{UnitTypes[card.unit.type]} </span>
+                <div
+                  style={{
+                    height: "20px",
+                    width: "15px",
+                    marginLeft: "5px",
+                    filter: `drop-shadow(1px 1px 1px black) hue-rotate(${filterDegs}deg)`,
+                  }}
+                >
+                  <img
+                    alt={UnitTypes[card.unit.type]}
+                    src={card.unit.image}
+                    style={{ height: "100%", width: "100%" }}
+                  ></img>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
     </div>
   );

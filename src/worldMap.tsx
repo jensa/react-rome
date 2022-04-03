@@ -4,23 +4,14 @@ import forest from "./svg/forest.svg";
 import { useState } from "react";
 import Button from "./button";
 import SceneState, { Scene } from "./sceneState";
-import WorldState, {
-  Map,
-  TerrainSquare,
-  Coord,
-  Enemy,
-  Terrain,
-} from "./worldState";
+import WorldState, { Map, TerrainSquare, Coord, Enemy, Terrain } from "./worldState";
 import BattleState from "./battleState";
 import { enemyName, getRandomInt, hslaDegs } from "./util";
 import generateBattlemap from "./utils/battleMapUtil";
 import { generateDeck } from "./utils/cardUtils";
 
-const mapWidth =
-  Math.max(document.documentElement.clientWidth, window.innerWidth || 0) * 0.8;
-const mapHeight =
-  Math.max(document.documentElement.clientHeight, window.innerHeight || 0) *
-  0.8;
+const mapWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0) * 0.8;
+const mapHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0) * 0.8;
 
 const coordKey = (i: Coord) => {
   return `${i.x}:${i.y}`;
@@ -34,10 +25,7 @@ const createEnemy = (
 ) => {
   const playerDegs = hslaDegs(playerColor);
   const [offsetMin, offsetMax] = [90 * index - 45, 90 * index];
-  const [enemyDegMin, enemyDegMax] = [
-    playerDegs + offsetMin,
-    playerDegs + offsetMax,
-  ];
+  const [enemyDegMin, enemyDegMax] = [playerDegs + offsetMin, playerDegs + offsetMax];
 
   const enemyDegs = getRandomInt(enemyDegMin, enemyDegMax) % 360;
   return {
@@ -51,11 +39,7 @@ const createEnemy = (
   };
 };
 
-const getEnemies = (
-  defeatedEnemies: Enemy[],
-  offset: Coord,
-  playerColor: string
-) => {
+const getEnemies = (defeatedEnemies: Enemy[], offset: Coord, playerColor: string) => {
   const newCoords = [
     {
       x: offset.x + mapWidth * (1 / 10),
@@ -108,6 +92,8 @@ const WorldMapScreen: React.FC<{}> = () => {
   const [selectedItem, setSelectedItem] = useState("");
   const [selectedEnemy, setSelectedEnemy] = useState<Enemy>();
 
+  const [isDragging, setIsDragging] = useState(false);
+
   return (
     <div style={{ display: "flex", flexDirection: "row", paddingTop: "30px" }}>
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -118,6 +104,16 @@ const WorldMapScreen: React.FC<{}> = () => {
             height: `${mapHeight}px`,
             width: `${mapWidth}px`,
             border: "1px solid black",
+          }}
+          onMouseMove={(e) => {
+            if (isDragging) setOffsets({ x: offsets.x - e.movementX, y: offsets.y - e.movementY });
+            //mouse moved, are we dragging?
+          }}
+          onMouseDown={(e) => {
+            setIsDragging(true);
+          }}
+          onMouseUp={(e) => {
+            setIsDragging(false);
           }}
         >
           {defeatedEnemies.length > 0 && (
@@ -137,22 +133,14 @@ const WorldMapScreen: React.FC<{}> = () => {
             color="green"
             defeated={false}
             coord={{ x: home.x - offsets.x, y: home.y - offsets.y }}
-            onClick={() =>
-              setSelectedItem(`The village of ${playerTribe.name}. Your home.`)
-            }
+            onClick={() => setSelectedItem(`The village of ${playerTribe.name}. Your home.`)}
           />
           {enemies.map((e) => {
             const { x, y } = e.home;
             return (
               <VillageDrawing
                 key={coordKey({ x: x - offsets.x, y: y - offsets.y }) + e.color}
-                color={
-                  selectedEnemy === e
-                    ? e.color
-                    : e.defeatedAt
-                    ? "lightgray"
-                    : "white"
-                }
+                color={selectedEnemy === e ? e.color : e.defeatedAt ? "lightgray" : "white"}
                 coord={{ x: x - offsets.x, y: y - offsets.y }}
                 defeated={e.defeatedAt !== undefined}
                 onClick={() => {
@@ -165,17 +153,9 @@ const WorldMapScreen: React.FC<{}> = () => {
               />
             );
           })}
-          <MapDrawing
-            map={map}
-            offsets={offsets}
-            onClick={() => setSelectedItem("")}
-          />
+          <MapDrawing map={map} offsets={offsets} onClick={() => setSelectedItem("")} />
         </div>
-        <MoveButtons
-          offsets={offsets}
-          setOffsets={setOffsets}
-          changeScene={changeScene}
-        />
+        <MoveButtons offsets={offsets} setOffsets={setOffsets} changeScene={changeScene} />
       </div>
       <TooltipBox
         selectedItem={selectedItem}
@@ -282,7 +262,9 @@ const MapItem: React.FC<{ i: TerrainSquare }> = ({ i }) => {
         left: `${i.x - i.w}px`,
         height: `${i.h}px`,
         width: `${i.w}px`,
+        pointerEvents: "none",
       }}
+      draggable={false}
     >
       <img
         alt={Terrain[i.t]}
